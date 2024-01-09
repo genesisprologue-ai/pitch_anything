@@ -17,6 +17,46 @@ Frontend web application for the DAVID project, writting in TypeScript, using Ne
 # API Design
 1. `GET /api/v1/health` - Health check endpoint
 2. `GET /api/v1/` - Get all the available endpoints 
-3. `POST /api/v1/topic` - Create a topic
-4. `POST /api/v1/document` - Upload a document, tied to a certain topic
-5. `POST /api/v1/media` - Upload a document, tied to a certain topic
+3. `POST /api/v1/topic` - Create a topic, while uploading a powerpoint file
+```
+<!-- Request Body -->
+{
+    "title": "string",
+    "description": "string",
+}
+
+MIME: multipart/form-data
+<file blob>
+
+<!-- Response -->
+{
+    "id": "string",
+}
+```
+4. `GET /api/v1/topic/:id/transcript` - Get a topic by id
+```
+{
+    "id": "string",
+    "status": "string", // "processing" | "done"
+    "transcript": "string" // only show when status is "done"
+}
+```
+5. `PUT /api/v1/topic/:id/transcript` - Update a transcript by id
+```
+{
+    "transcript": "string" // only show when status is "done"
+}
+```
+6. `POST /api/v1/document/:id` - Upload a document, tied to a certain topic.
+```
+<!-- Request Body -->
+{
+    "title": "string",
+    "type": "string", // "text" | "image" | "video" | "audio"
+    "content": "string", // base64 encoded string
+}
+<!-- Response -->
+{
+    "id": "string", // document id
+}
+```
