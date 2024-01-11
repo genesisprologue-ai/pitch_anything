@@ -1,22 +1,22 @@
 <script setup>
 import { ref } from 'vue'
 import { VuePDF, usePDF } from '@tato30/vue-pdf'
+import { useDavidStore } from '@/stores/david'; // Adjust the path to where your store is defined
+
+// Use the Pinia store
+const store = useDavidStore();
 
 const page = ref(1)
 const { pdf, pages } = usePDF('https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf')
 
 // Reference files data
-const referenceFiles = ref([
-  { filename: 'Document 1', linkedChapter: 'Chapter 1', type: 'PDF', keywords: ['example', 'document'] },
-  { filename: 'Document 2', linkedChapter: 'Chapter 2', type: 'PDF', keywords: ['sample', 'file'] },
-  // ... more files
-]);
+const referenceFiles = store.referenceFiles;
 
 // File upload handler function
-const fileUploadHandler = (files, dataType) => {
-  // Your file upload logic here
-  console.log('File uploaded:', files);
-  console.log('Data type:', dataType);
+const fileUploadHandler = store.uploadEmbeddingFile;
+
+const fileRemoveHandler = (file_id) => {
+  console.log('File removed:', file_id)
 }
 </script>
 
@@ -46,7 +46,8 @@ const fileUploadHandler = (files, dataType) => {
       </div>
     </div>
     <div class="scrollable-list-section flex flex-row h-full justify-between m-1">
-      <ReferenceFileTable :referenceFiles="referenceFiles" :fileUploadHandler="fileUploadHandler"></ReferenceFileTable>
+      <ReferenceFileTable :referenceFiles="referenceFiles" :fileUploadHandler="fileUploadHandler"
+        :fileRemoveHandler="fileRemoveHandler"></ReferenceFileTable>
       <div class="flex flex-col justify-center">
         <button type="button"
           class="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Submit</button>

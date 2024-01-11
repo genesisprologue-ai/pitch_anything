@@ -10,7 +10,11 @@ export const useDavidStore = defineStore('david', () => {
     const isUploadingEmbeddings = ref(false);
 
     // List of reference files for the master file
-    const referenceFiles = ref([]);
+    const referenceFiles = ref([
+        { filename: 'Document 1', linkedChapter: 'Chapter 1', type: 'PDF', keywords: ['example', 'document'], id: 1 },
+        { filename: 'Document 2', linkedChapter: 'Chapter 2', type: 'PDF', keywords: ['sample', 'file'], id: 2 },
+        // ... more files
+    ]);
 
     // The currently edited master file (if necessary)
     const currentMasterFile = ref(null);
@@ -31,7 +35,11 @@ export const useDavidStore = defineStore('david', () => {
     }
 
     // Actions to upload embedding files
-    async function uploadEmbedding(file) {
+    async function uploadEmbeddingFile(files, dataType) {
+        // Your file upload logic here
+        console.log('File uploaded:', files);
+        console.log('Data type:', dataType);
+
         isUploadingEmbeddings.value = true;
         // Logic to upload embedding files...
         // Update referenceFiles.value as necessary
@@ -56,7 +64,7 @@ export const useDavidStore = defineStore('david', () => {
         currentMasterFile,
         transcript,
         uploadMasterFile,
-        uploadEmbedding,
+        uploadEmbeddingFile,
         fetchTranscript,
         isLoading,
     };

@@ -35,7 +35,8 @@
                     {{ file.keywords.join(', ') }}
                 </td>
                 <td class="px-6 py-4 text-center">
-                    <a href="#" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Remove</a>
+                    <a href="#" class="font-medium text-blue-600 dark:text-blue-500 hover:underline"
+                        @click.prevent=fileRemoveHandler(file.id)>Remove</a>
                 </td>
             </tr>
         </tbody>
@@ -60,6 +61,10 @@ export default {
             type: Function,
             required: true
         },
+        fileRemoveHandler: {
+            type: Function,
+            required: true
+        }
     },
     setup() {
         // Define reactive data
