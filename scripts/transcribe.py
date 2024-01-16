@@ -5,11 +5,21 @@ from pdf2image.exceptions import (
     PDFPageCountError,
     PDFSyntaxError,
 )
+import semantic_kernel as sk
+from semantic_kernel.connectors.ai.open_ai import (
+    OpenAIChatCompletion,
+    AzureChatCompletion,
+)
+
+
 import vertexai
 from vertexai.preview.generative_models import (
     GenerativeModel,
     Image as VertextImg,
 )
+
+kernel = sk.Kernel()
+deployment, api_key, endpoint = sk.azure_openai_settings_from_dot_env()
 
 PROJECT_ID = "moonbox-auth-dev"
 LOC = "asia-southeast1"
