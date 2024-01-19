@@ -1,24 +1,26 @@
-import hashlib
 import os
 from io import StringIO
-from pptx import Presentation
-from fastapi import FastAPI, File
+from uuid import uuid4
+from pdf2image import convert_from_bytes
+from fastapi import FastAPI, File, UploadFile
 
 app = FastAPI()
 
 
 @app.post("/upload")
-async def upload_powerpoint(file: bytes = File(...)):
+async def upload_powerpoint(file: UploadFile):
     print(file)
-    source_stream = StringIO(file.decode())
+    source_stream = await file.read()
     # Extract each slide as an image
-    presentation = Presentation(source_stream)
-    source_stream.close()
-    for i, slide in enumerate(presentation.slides):
-        # Create an MD5 hash from the file name
-        file_name_hash = hashlib.md5(file.filename.encode()).hexdigest()
-        image_path = os.path.join("uploads", file_name_hash, f"slide_{i}.jpg")
-        os.makedirs(os.path.dirname(image_path), exist_ok=True)
-        slide.export(image_path)
+    images = convert_from_bytes(source_stream)
 
-    return {"message": "Slides extracted and saved successfully"}
+    file_name_hash = str(uuid4())
+    for i in range(len(images)):
+        image_path = os.path.join("uploads", file_name_hash, f"slide_{i}.jpg")
+        # Save pages as images in the pdf
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+        images[i].save(image_path, "JPEG")
+
+    # kick off pdf transcribe and tts service
+
+    return {"filename": file.filename}

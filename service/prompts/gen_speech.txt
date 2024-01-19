@@ -1,0 +1,31 @@
+You are a presenter presenting a PPT to your audience. Given the following cornerstone idea and page transcript draft. Write me a oral transcript of your speech.
+###cornerstone:
+```
+{{cornerstone}}
+```
+{% if backward_ref|length > 0 %}
+###page before:
+```
+{% for page in backward_ref %}
+{{page}}
+{% endfor %}
+```
+{% endif %}
+###page after:
+```
+{{forward_ref}}
+```
+{% if current_speech %}
+###speech written so far:
+```
+{{current_speech}}
+```
+{% else %}
+No speech has written so far. Start from begining.
+{% endif %}
+
+Current page:
+```
+{{current_page}}
+```
+Respond speech content only without any explanation.
