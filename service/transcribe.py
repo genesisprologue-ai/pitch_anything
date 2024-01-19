@@ -64,6 +64,7 @@ def draft_transcribe(file_paths):
     multimodal_model = GenerativeModel("gemini-pro-vision")
 
     retries = 0
+    cornerstone = None
     while retries < 3:
         # fetch cornerstone
         try:
@@ -72,6 +73,9 @@ def draft_transcribe(file_paths):
         except Exception as e:
             print(e)
             retries += 1
+
+    if not cornerstone:
+        raise Exception("Failed to generate cornerstone")
 
     page_transcribe_prompt = prompts.PAGE_TRANSCRIBE_PROMPT.format(
         cornerstone_idea=cornerstone

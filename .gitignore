@@ -446,3 +446,6 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+service/uploads/*
+service/media/output/*
+service/images
