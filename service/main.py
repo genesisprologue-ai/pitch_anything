@@ -108,6 +108,7 @@ def resume(self, param):
         pitch.transcript = speech_content
         pitch.save()
     if stage == orm.TranscribeStage.FINISH:  # send to finish
+        # create audio file
         return {"message": "transcribe completed"}
 
 
@@ -170,6 +171,29 @@ async def upload_powerpoint(file: UploadFile):
             "task_id": None,
             "message": f"create task failed: {e}",
         }
+
+
+@app.post("/upload_embedding/{pitch_id}")
+async def upload_embedding(pitch_id: int, file: UploadFile):
+    source_stream = await file.read()
+    # upload file to uploads folder
+    upload_path = os.path.join("uploads", f"{pitch_id}_embedding", file.filename)
+    with open(upload_path, "wb") as f:
+        f.write(source_stream)
+
+    # create document
+    document = orm.Document(
+        pitch_id=pitch_id,
+        master_doc=False,
+        file_name=file.filename,
+        storage_path=upload_path,
+    )
+    document.save()
+
+    # run embedding task
+    # todo:
+
+    return {"doc_id": document.id, "message": None}
 
 
 @app.get("/tasks/{task_id}")
