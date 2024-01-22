@@ -1,8 +1,11 @@
+import json
 import os
+from typing import List
 from pdf2image import convert_from_path
 from fastapi import FastAPI, UploadFile
 from celery import Celery, states
 import orm
+from schema import PageDraft
 from transcribe import draft_transcribe, gen_transcript
 
 app = FastAPI()
@@ -38,6 +41,8 @@ def transcribe(self, param):
     images = convert_from_path(param.get("storage_path"), 300)
     image_folder = os.path.join("uploads", f"{param.get('pitch_id')}")
     image_paths = []
+    # update document:
+    document = orm.Document.get_by_doc_id(param.get("doc_id"))
     try:
         for i in range(len(images)):
             image_path = os.path.join(image_folder, f"slide_{i}.jpg")
@@ -45,6 +50,8 @@ def transcribe(self, param):
             os.makedirs(os.path.dirname(image_path), exist_ok=True)
             images[i].save(image_path, "JPEG")
             image_paths.append(image_path)
+        document.progress = f"0:{len(images)}"
+        document.save()
     except Exception as e:
         print(e)
         self.update_state(state=states.FAILURE, meta=f"failed to segment pdf: {e}")
@@ -52,7 +59,7 @@ def transcribe(self, param):
     # kick off transcribe
     task.process_stage = orm.TranscribeStage.DRAFT.value
     task.save()
-    page_drafts = draft_transcribe(image_paths)
+    page_drafts = draft_transcribe(image_paths, document)
 
     # write transcripts
     task.process_stage = orm.TranscribeStage.GEN_TRANSCRIPT.value
@@ -73,6 +80,7 @@ def transcribe(self, param):
 def resume(self, param):
     # lookup task associated with pitch
     task = orm.Task.get_by_pitch_id(pitch_id=param.get("pitch_id"))
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=param.get("pitch_id"))
     print(f"task stage {task.process_stage}")
     stage = orm.TranscribeStage(task.process_stage)
     if stage == orm.TranscribeStage.SEGMENT:  # send to drafting
@@ -86,9 +94,12 @@ def resume(self, param):
             if file.endswith(".jpg"):
                 image_paths.append(os.path.join(image_dir, file))
         page_drafts = draft_transcribe(image_paths)
+        pitch.drafts = json.dumps(page_drafts)
+        pitch.save()
 
-    elif stage == orm.TranscribeStage.DRAFT:  # send to trascribe
+    if stage == orm.TranscribeStage.DRAFT:  # send to trascribe
         # write transcripts
+        page_drafts = json.loads(pitch.drafts)
         task.process_stage = orm.TranscribeStage.GEN_TRANSCRIPT.value
         task.save()
         speech_content = gen_transcript(page_drafts)
@@ -96,10 +107,8 @@ def resume(self, param):
         pitch = orm.Pitch(id=param.get("pitch_id")).get()
         pitch.transcript = speech_content
         pitch.save()
-    elif stage == orm.TranscribeStage.FINISH:  # send to finish
+    if stage == orm.TranscribeStage.FINISH:  # send to finish
         return {"message": "transcribe completed"}
-    else:
-        return {"message": f"task stage {task.process_stage} not supported"}
 
 
 @app.post("/resume_transcribe/{pitch_id}")

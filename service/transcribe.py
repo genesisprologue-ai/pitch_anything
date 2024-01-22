@@ -33,7 +33,7 @@ def cornerstone_from_cover(file_path, multimodal_model):
     return cornerstone.text
 
 
-def draft_transcribe(file_paths):
+def draft_transcribe(file_paths, document):
     """transcribe the images in the file_paths with gemini-pro-vision
     The first image is the cover of pdf, the title/main idea of the pdf will be generated
     based on the first image.
@@ -102,6 +102,9 @@ def draft_transcribe(file_paths):
                     links=[],
                 )
                 page_drafts.append(draft)
+                if document:
+                    document.progress = f"{i+1}:{len(file_paths)}"
+                    document.save()
                 break
             except Exception as e:
                 print(e)

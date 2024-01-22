@@ -3,7 +3,16 @@ from enum import Enum
 import os
 from contextlib import contextmanager
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine, text
+from sqlalchemy import (
+    VARCHAR,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    create_engine,
+    text,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from dotenv import load_dotenv
@@ -117,6 +126,7 @@ class Pitch(Base):
     __tablename__ = "pitches"
 
     id = Column(Integer, primary_key=True)
+    drafts = Column(String, nullable=True)
     transcript = Column(String, nullable=True)
     published = Column(Boolean, nullable=False, default=False)
 
@@ -159,6 +169,7 @@ class Document(Base):
     file_name = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
     master_doc = Column(Boolean, nullable=False, default=False)
+    progress = Column(VARCHAR(25), nullable=False, default="0:0")
     processed = Column(Integer, nullable=False, default=0)  # 0, 1
 
     def save(self):
@@ -172,4 +183,13 @@ class Document(Base):
                 session.commit()
             except Exception as e:
                 session.rollback()  # This is essential to reset the session state
+                print(f"Error occurred: {e}")
+
+    @classmethod
+    def get_by_doc_id(cls, doc_id):
+        with local_session() as session:
+            try:
+                return session.query(cls).filter_by(id=doc_id).first()
+            except Exception as e:
+                session.rollback()
                 print(f"Error occurred: {e}")
