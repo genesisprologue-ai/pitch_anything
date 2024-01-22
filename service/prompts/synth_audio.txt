@@ -1,0 +1,13 @@
+given a speech content:
+```
+{{speech}}
+```
+Please analyze sentiments and rewrite using SSML format using this template:
+```template
+<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+    <voice name="{{voice}}">
+        content goes here
+    </voice>
+</speak>
+```
+Respond with SSML file content only, absolutely without any explanation.

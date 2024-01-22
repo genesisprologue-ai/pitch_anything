@@ -1,3 +1,4 @@
+import json
 import os
 from typing import List
 import vertexai
@@ -113,14 +114,14 @@ def draft_transcribe(file_paths, document):
     return page_drafts
 
 
-def gen_transcript(drafts: List[PageDraft]):
+def gen_transcript(drafts: List[PageDraft]) -> str:
     """Gather cornerstone and draft. Create a readable transcript based on the content
     without timestamp.
 
     Args:
         drafts (list[PageDraft]): A list of draft content
     """
-    speech = ""
+    speeches = []
     llm_cli = llm_client()
     for i, draft in enumerate(drafts):
         backward_ref = []
@@ -138,7 +139,7 @@ def gen_transcript(drafts: List[PageDraft]):
                 "forward_ref": forward_ref,
                 "cornerstone": draft.cornerstone,
                 "current_page": draft.draft,
-                "current_speech": speech,
+                "current_speech": "".join(speeches),
             },
             "gen_speech.txt",
         )
@@ -150,9 +151,9 @@ def gen_transcript(drafts: List[PageDraft]):
             messages=[{"role": "system", "content": sys_prompt}],
         )
         print(response)
-        speech += response.choices[0].message.content
+        speeches.append(response.choices[0].message.content)
 
-    return speech
+    return json.dumps(speeches)
 
 
 # if __name__ == "__main__":

@@ -73,14 +73,21 @@ class TranscribeStage(Enum):
     FINISH = 4
 
 
+class AudioStage(Enum):
+    PROCESSING = 101
+    FINISH = 102
+    FAILED = 199
+
+
 # Models
 class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True)
+    task_type = Column(Integer, nullable=False, default=0)  # 0: transcribe, 1: audio
     task_id = Column(String, nullable=True)
     pitch_id = Column(Integer, nullable=False)
-    document_id = Column(Integer, nullable=False)
+    document_id = Column(Integer, nullable=False, default=-1)
     process_stage = Column(Integer, nullable=False, default=0)
     version = Column(Integer, nullable=False, default=0)
     updated_at = Column(

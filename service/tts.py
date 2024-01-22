@@ -2,9 +2,34 @@ import os
 from uuid import uuid4
 from dotenv import load_dotenv
 import azure.cognitiveservices.speech as speechsdk
+import prompts.prompts as prompts
+from llm import llm_client
 
 
-async def speech_synthesize(ssml, voice_name="en-US-GuyNeural"):
+async def text_to_ssml(text):
+    # gen transcript based backward/foward ref and cornerstone
+    sys_prompt, _ = prompts.load_prompt(
+        {
+            "speech": text,
+            "voice": "en-US-GuyNeural"
+
+        },
+        "synth_audio.txt",
+    )
+    print("----------------")
+    print(sys_prompt)
+    print("----------------")
+    llm_cli = llm_client()
+    response = llm_cli.chat.completions.create(
+        model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        messages=[{"role": "system", "content": sys_prompt}],
+    )
+
+    print(response)
+    return response.choices[0].message.content
+
+
+async def speech_synthesize(ssml, pitch_id, voice_name="en-US-GuyNeural"):
     load_dotenv()
     # This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
     speech_config = speechsdk.SpeechConfig(
@@ -25,13 +50,13 @@ async def speech_synthesize(ssml, voice_name="en-US-GuyNeural"):
     speech_synthesis_result = await speech_synthesizer.speak_ssml_async(ssml).get()
 
     if (
-        speech_synthesis_result.reason
-        == speechsdk.ResultReason.SynthesizingAudioCompleted
+            speech_synthesis_result.reason
+            == speechsdk.ResultReason.SynthesizingAudioCompleted
     ):
         print("SynthesizingAudioCompleted result")
         stream = speechsdk.AudioDataStream(speech_synthesis_result)
         # creat a tmp file to store the audio
-        output_audio = os.path.join("./media/output", uuid4() + ".wav")
+        output_audio = os.path.join("./media/output", str(pitch_id), uuid4() + ".wav")
         stream.save_to_wav_file(output_audio)
         return True
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:

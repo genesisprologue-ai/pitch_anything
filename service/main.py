@@ -5,7 +5,8 @@ from pdf2image import convert_from_path
 from fastapi import FastAPI, UploadFile
 from celery import Celery, states
 import orm
-from schema import PageDraft
+from schema import PageDraft, PageTranscript
+from tts import text_to_ssml, speech_synthesize
 from transcribe import draft_transcribe, gen_transcript
 
 app = FastAPI()
@@ -87,6 +88,7 @@ def resume(self, param):
         # kick off transcribe
         task.process_stage = orm.TranscribeStage.DRAFT.value
         task.save()
+        stage = orm.TranscribeStage(task.process_stage)
         # lookup image paths
         image_dir = os.path.join("uploads", f"{param.get('pitch_id')}")
         image_paths = []
@@ -97,34 +99,54 @@ def resume(self, param):
         pitch.drafts = json.dumps(page_drafts)
         pitch.save()
 
+    # continue
     if stage == orm.TranscribeStage.DRAFT:  # send to trascribe
         # write transcripts
         page_drafts = json.loads(pitch.drafts)
         task.process_stage = orm.TranscribeStage.GEN_TRANSCRIPT.value
         task.save()
+        stage = orm.TranscribeStage(task.process_stage)
         speech_content = gen_transcript(page_drafts)
         # save speech for audio dialog generation
         pitch = orm.Pitch(id=param.get("pitch_id")).get()
         pitch.transcript = speech_content
         pitch.save()
+
     if stage == orm.TranscribeStage.FINISH:  # send to finish
         # create audio file
         return {"message": "transcribe completed"}
 
 
-@app.post("/resume_transcribe/{pitch_id}")
-async def resume_transcribe(pitch_id: int):
-    task = orm.Task.get_by_pitch_id(pitch_id=pitch_id)
-    if not task:
-        return {"message": "task not found"}
+@celery.task(bind=True)
+async def ssml_audio_sync(self, param):
+    # convert to ssml
+    speeches = param.get("speeches")
+    pitch_id = param.get("pitch_id")
 
-    # send task
-    _ = resume.delay(
-        {
-            "pitch_id": pitch_id,
-        }
+    task_id = self.request.id
+    print(f"task id: {task_id}")
+    task = orm.Task(
+        task_id=task_id,
+        pitch_id=param.get("pitch_id"),
+        task_type=1,
+        process_stage=orm.AudioStage.PROCESSING.value,
+        version=1,
     )
-    return {"task_id": task.task_id, "message": None}
+    task.save()
+
+    for i, speech in enumerate(speeches):
+        ssml = text_to_ssml(speech)
+        retries = 0
+        while retries < 3:
+            try:
+                audio_success = await speech_synthesize(ssml, pitch_id)
+                if audio_success:
+                    break
+            except Exception as e:
+                print(e)
+                retries += 1
+
+    return {"message": "ssml audio sync completed", "task_id": task_id}
 
 
 # --------------web api routes----------------
@@ -173,7 +195,22 @@ async def upload_powerpoint(file: UploadFile):
         }
 
 
-@app.post("/upload_embedding/{pitch_id}")
+@app.post("/{pitch_id}/resume_transcribe")
+async def resume_transcribe(pitch_id: int):
+    task = orm.Task.get_by_pitch_id(pitch_id=pitch_id)
+    if not task:
+        return {"message": "task not found"}
+
+    # send task
+    _ = resume.delay(
+        {
+            "pitch_id": pitch_id,
+        }
+    )
+    return {"task_id": task.task_id, "message": None}
+
+
+@app.post("/{pitch_id}/upload_embedding")
 async def upload_embedding(pitch_id: int, file: UploadFile):
     source_stream = await file.read()
     # upload file to uploads folder
@@ -196,7 +233,46 @@ async def upload_embedding(pitch_id: int, file: UploadFile):
     return {"doc_id": document.id, "message": None}
 
 
+@app.post("/{pitch_id}/tts")
+def transcript_tts(pitch_id: int):
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    if not pitch:
+        return {"message": "pitch not found"}
+    task_resp = ssml_audio_sync.delay({
+        "speeches": json.loads(pitch.transcript),
+        "pitch_id": pitch_id})
+    if not task_resp.id:
+        return {"message": "failed to create task"}
+
+    return {"task_id": task_resp.id, "message": None}
+
+
+@app.post("/{pitch_id}/video_generation")
+def video_generation(pitch_id: int):
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    if not pitch:
+        return {"message": "pitch not found"}
+
+
 @app.get("/tasks/{task_id}")
 def task_status(task_id):
     task = orm.Task.get_by_task_id(task_id)
     return {"task": task}
+
+
+@app.get("/{pitch_id}/transcript")
+def get_transcript(pitch_id: int):
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    if not pitch:
+        return {"message": "pitch not found"}
+    return {"transcripts": json.loads(pitch.transcript), "message": None}
+
+
+@app.put("/{pitch_id}/trasncript")
+def update_transcript(pitch_id: int, transcripts: List[PageTranscript]):
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    if not pitch:
+        return {"message": "pitch not found"}
+    pitch.transcript = json.dumps(transcripts)
+    pitch.save()
+    return {"message": None}
