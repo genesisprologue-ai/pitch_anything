@@ -6,14 +6,10 @@ import prompts.prompts as prompts
 from llm import llm_client
 
 
-async def text_to_ssml(text):
+def text_to_ssml(text):
     # gen transcript based backward/foward ref and cornerstone
     sys_prompt, _ = prompts.load_prompt(
-        {
-            "speech": text,
-            "voice": "en-US-GuyNeural"
-
-        },
+        {"speech": text, "voice": "en-US-GuyNeural"},
         "synth_audio.txt",
     )
     print("----------------")
@@ -29,9 +25,11 @@ async def text_to_ssml(text):
     return response.choices[0].message.content
 
 
-async def speech_synthesize(ssml, pitch_id, voice_name="en-US-GuyNeural"):
+def speech_synthesize(ssml, pitch_id, voice_name="en-US-GuyNeural"):
     load_dotenv()
     # This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
+    print(os.environ.get("AZURE_SPEECH_REGION"))
+    print(os.environ.get("AZURE_SPEECH_KEY"))
     speech_config = speechsdk.SpeechConfig(
         subscription=os.environ.get("AZURE_SPEECH_KEY"),
         region=os.environ.get("AZURE_SPEECH_REGION"),
@@ -42,21 +40,29 @@ async def speech_synthesize(ssml, pitch_id, voice_name="en-US-GuyNeural"):
         property_id=speechsdk.PropertyId.SpeechServiceResponse_RequestSentenceBoundary,
         value="true",
     )
+    speech_config.speech_synthesis_voice_name = voice_name
 
     # audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config, audio_config=None
     )
-    speech_synthesis_result = await speech_synthesizer.speak_ssml_async(ssml).get()
+    # speech_synthesis_result = speech_synthesizer.speak_ssml(ssml)
+    speech_synthesis_result = speech_synthesizer.speak_text(ssml)
 
     if (
-            speech_synthesis_result.reason
-            == speechsdk.ResultReason.SynthesizingAudioCompleted
+        speech_synthesis_result.reason
+        == speechsdk.ResultReason.SynthesizingAudioCompleted
     ):
         print("SynthesizingAudioCompleted result")
         stream = speechsdk.AudioDataStream(speech_synthesis_result)
         # creat a tmp file to store the audio
-        output_audio = os.path.join("./media/output", str(pitch_id), uuid4() + ".wav")
+        os.makedirs(
+            os.path.abspath(os.path.join("media", str(pitch_id))), exist_ok=True
+        )
+        output_audio = os.path.abspath(
+            os.path.join("media", str(pitch_id), str(uuid4()) + ".wav")
+        )
+        print(f"output audio: {output_audio}")
         stream.save_to_wav_file(output_audio)
         return True
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
