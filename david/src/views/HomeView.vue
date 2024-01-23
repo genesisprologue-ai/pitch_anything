@@ -6,9 +6,20 @@ import { initFlowbite } from 'flowbite'
 // Use the Pinia store
 const store = useDavidStore();
 
-const handleUpload = (files) => {
-  console.log('Uploading master file:', files);
-  store.uploadMasterFile(files)
+const handleUpload = async (event) => {
+  const fileInput = event.target;
+
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0]; // Get the first file from the file input
+    // Call uploadMasterFile with the file
+    try {
+      const response = await store.uploadMasterFile(file)
+      console.log('File uploaded successfully', response);
+      this.$router.push('/editing');
+    } catch (error) {
+      console.error('Error uploading file', error);
+    }
+  }
 }
 
 // initialize components based on data attribute selectors

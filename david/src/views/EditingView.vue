@@ -1,25 +1,53 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { VuePDF, usePDF } from '@tato30/vue-pdf'
-import { useDavidStore } from '@/stores/david'; // Adjust the path to where your store is defined
-
+import { useDavidStore } from '@/stores/david' // Adjust the path to where your store is defined
+import { Delta } from '@vueup/vue-quill'
 // Use the Pinia store
-const store = useDavidStore();
+const store = useDavidStore()
 
 const page = ref(1)
-const { pdf, pages } = usePDF('https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf')
+const pageURL = store.getPdfURL()
+const { pdf, pages } = usePDF(pageURL)
+
+const editorContent = ref('')
+const content = ref < Delta | null > (null)
 
 // Reference files data
-const referenceFiles = store.referenceFiles;
+const referenceFiles = store.referenceFiles
 
 // File upload handler function
-const fileUploadHandler = store.uploadEmbeddingFile;
+const fileUploadHandler = store.uploadEmbeddingFile
 
 const fileRemoveHandler = (file_id) => {
   console.log('File removed:', file_id)
 }
-</script>
 
+
+// Fetch transcripts from backend using pitchId on store
+onMounted(async () => {
+  const pitchId = store.pitchId
+  console.log('Pitch ID:', pitchId)
+  const transcripts = await store.fetchTranscript()
+  // After fetching, set the initial transcript based on the first page
+  if (transcripts.length > 0) {
+    editorContent.value = transcripts[0]
+    console.log(editorContent.value)
+  }
+})
+
+watch(page, (newPageIndex) => {
+  if (store.transcript && store.transcript.length > 0) {
+    console.log('Page changed:', newPageIndex)
+    const transcriptIndex = newPageIndex - 1
+    if (transcriptIndex >= 0 && transcriptIndex < store.transcript.length) {
+      editorContent.value = store.transcript[transcriptIndex]
+    }
+  }
+})
+</script>
+page = page < pages ? page + 1 : pages
+page = page > 1 ? page - 1 : 1
 <template>
   <main class="flex flex-col justify-begin w-full h-full">
     <div class="flex flex-row p-2">
@@ -28,46 +56,50 @@ const fileRemoveHandler = (file_id) => {
         <div class="flex flex-row justify-center items-center">
           <button @click="page = page > 1 ? page - 1 : 1">
             <svg class="w-[16px] h-[16px] text-gray-800 dark:text-white" aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16" />
-            </svg> </button>
+            </svg>
+          </button>
           <span class="px-3">{{ page }} / {{ pages }}</span>
           <button @click="page = page < pages ? page + 1 : pages">
             <svg class="w-[16px] h-[16px] text-gray-800 dark:text-white" aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 1v16M1 9h16" />
+                    d="M9 1v16M1 9h16" />
             </svg>
           </button>
         </div>
       </div>
       <div class="transcript-editor flex flex-col w-full">
-        <QuillEditor theme="snow" />
+        <Editor v-model="editorContent" editorStyle="height: 100vh" />
       </div>
     </div>
     <div class="scrollable-list-section flex flex-row h-full justify-between m-1">
       <ReferenceFileTable :referenceFiles="referenceFiles" :fileUploadHandler="fileUploadHandler"
-        :fileRemoveHandler="fileRemoveHandler"></ReferenceFileTable>
+                          :fileRemoveHandler="fileRemoveHandler"></ReferenceFileTable>
       <div class="flex flex-col justify-center">
         <button type="button"
-          class="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Submit</button>
+                class="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+          Submit
+        </button>
         <button type="button"
-          class="text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">Preview</button>
+                class="text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">
+          Preview
+        </button>
       </div>
     </div>
   </main>
 </template>
 
 <script>
-import { QuillEditor } from '@vueup/vue-quill'
-import ReferenceFileTable from '@/components/ReferenceFileTable.vue';
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import ReferenceFileTable from '@/components/ReferenceFileTable.vue'
+import Editor from 'primevue/editor'
 
 export default {
   components: {
-    QuillEditor,
+    Editor,
     ReferenceFileTable
-  },
+  }
 }
 </script>
 

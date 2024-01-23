@@ -5,8 +5,24 @@ from fastapi import FastAPI, UploadFile
 import orm
 from schema import PageTranscript
 from tasks import transcribe, resume, ssml_audio_sync
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 orm.init_db()
 
@@ -138,3 +154,14 @@ def update_transcript(pitch_id: int, transcripts: List[PageTranscript]):
     pitch.transcript = json.dumps(transcripts)
     pitch.save()
     return {"message": None}
+
+
+@app.get("/{pitch_id}/master_doc")
+def serving_master_doc(pitch_id: int):
+    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    if not pitch:
+        return {"message": "pitch not found"}
+    master_doc = orm.Document.get_master_by_pitch_id(pitch_id=pitch_id)
+    if not master_doc:
+        return {"message": "master doc not found"}
+    return FileResponse(master_doc.storage_path, media_type="application/pdf")

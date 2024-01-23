@@ -200,3 +200,16 @@ class Document(Base):
             except Exception as e:
                 session.rollback()
                 print(f"Error occurred: {e}")
+
+    @classmethod
+    def get_master_by_pitch_id(cls, pitch_id):
+        with local_session() as session:
+            try:
+                return (
+                    session.query(cls)
+                    .filter_by(pitch_id=pitch_id, master_doc=True)
+                    .first()
+                )
+            except Exception as e:
+                session.rollback()
+                print(f"Error occurred: {e}")
