@@ -57,7 +57,7 @@ async def upload_powerpoint(file: UploadFile):
         }
 
 
-@app.post("/{pitch_id}/resume_transcribe")
+@app.post("/resume_transcribe/{pitch_id}")
 async def resume_transcribe(pitch_id: int):
     task = orm.Task.get_by_pitch_id(pitch_id=pitch_id)
     if not task:
@@ -100,9 +100,9 @@ def transcript_tts(pitch_id: int):
     pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
     if not pitch:
         return {"message": "pitch not found"}
-    task_resp = ssml_audio_sync.delay({
-        "speeches": json.loads(pitch.transcript),
-        "pitch_id": pitch_id})
+    task_resp = ssml_audio_sync.delay(
+        {"speeches": json.loads(pitch.transcript), "pitch_id": pitch_id}
+    )
     if not task_resp.id:
         return {"message": "failed to create task"}
 
