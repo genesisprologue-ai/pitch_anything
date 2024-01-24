@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@tato30/vue-pdf": "^1.9.3",
-    "@vueup/vue-quill": "^1.2.0",
     "axios": "^1.6.5",
     "flowbite": "^2.2.1",
     "pinia": "^2.1.7",

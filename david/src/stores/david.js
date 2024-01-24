@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   uploadMasterFile as uploadMasterFileApi,
   fetchTranscript as fetchTranscriptApi,
+  fetchTaskStatus as fetchTaskStatusApi,
   BASE_URL
 } from '@/api/ApiService'
 
@@ -10,10 +11,8 @@ export const useDavidStore = defineStore('david', () => {
   // State to hold the PDF URL
   const pitchId = ref(1)
   const pdfUrl = ref('')
+  const masterTaskId = ref('')
 
-  // Loading states
-  const isProcessingFile = ref(false)
-  const isUploadingEmbeddings = ref(false)
 
   const getPdfURL = () => {
     return `${BASE_URL}/${pitchId.value}/master_doc`
@@ -21,32 +20,28 @@ export const useDavidStore = defineStore('david', () => {
 
   // List of reference files for the master file
   const referenceFiles = ref([
-    { filename: 'Document 1', linkedChapter: 'Chapter 1', type: 'PDF', keywords: ['example', 'document'], id: 1 },
-    { filename: 'Document 2', linkedChapter: 'Chapter 2', type: 'PDF', keywords: ['sample', 'file'], id: 2 }
-    // ... more files
+    // { filename: 'Document 1', linkedChapter: 'Chapter 1', type: 'PDF', keywords: ['example', 'document'], id: 1 },
   ])
 
   // The currently edited master file (if necessary)
   const currentMasterFile = ref(null)
 
   // Transcript data segmented into chapters
-  const transcript = ref([])
+  const transcripts = ref([])
 
   // Actions to upload the master file and receive the PDF URL
   async function uploadMasterFile(file) {
-    isProcessingFile.value = true
 
     try {
       const result = await uploadMasterFileApi(file)
       console.log(result)
       pitchId.value = result.pitch_id
       pdfUrl.value = BASE_URL + '/' + pitchId.value + '/master_doc'
-      isProcessingFile.value = false
+      masterTaskId.value = result.task_id
       return result
     } catch (error) {
       console.error('Error uploading master file:', error)
       // Handle error
-      isProcessingFile.value = false
       throw error
     }
 
@@ -57,11 +52,21 @@ export const useDavidStore = defineStore('david', () => {
     // Your file upload logic here
     console.log('File uploaded:', files)
     console.log('Data type:', dataType)
+  }
 
-    isUploadingEmbeddings.value = true
-    // Logic to upload embedding files...
-    // Update referenceFiles.value as necessary
-    isUploadingEmbeddings.value = false
+  async function fetchMasterTaskStatus() {
+    try {
+      const result = await fetchTaskStatusApi(masterTaskId.value)
+      console.log(result)
+      // check document progress, progress is in 1:10 format for 10 page document processing at page 1
+      const [currentPage, totalPages] = result.progress.split(':')
+      const percentage = (parseInt(currentPage) / parseInt(totalPages)) * 100
+      return Math.round(percentage) // Round the percentage to the nearest whole number
+    } catch (error) {
+      console.error('Error fetching master task status:', error)
+      // Handle error
+      throw error
+    }
   }
 
   // Action to fetch and set the transcript for the master file
@@ -69,8 +74,16 @@ export const useDavidStore = defineStore('david', () => {
     try {
       const result = await fetchTranscriptApi(pitchId.value)
       console.log(result)
-      transcript.value = result.transcripts
-      return result.transcripts
+
+      if (result.message !== null) {
+        console.log(result.message)
+        // Redirect to '/'
+        transcripts.value = []
+      } else {
+        transcripts.value = result.transcripts
+      }
+
+      return transcripts.value
     } catch (error) {
       console.error('Error fetching transcript:', error)
       // Handle error
@@ -78,21 +91,17 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
-  // A computed property to indicate if any loading is happening
-  const isLoading = computed(() => isProcessingFile.value || isUploadingEmbeddings.value)
 
   return {
     pitchId,
     pdfUrl,
-    isProcessingFile,
-    isUploadingEmbeddings,
     referenceFiles,
     currentMasterFile,
-    transcript,
+    transcripts,
     getPdfURL,
     uploadMasterFile,
     uploadEmbeddingFile,
     fetchTranscript,
-    isLoading
+    fetchMasterTaskStatus,
   }
 })

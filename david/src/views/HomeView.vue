@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted } from 'vue';
+import router from '@/router';
 import { useDavidStore } from '@/stores/david'; // Adjust the path to where your store is defined
 import { initFlowbite } from 'flowbite'
 
@@ -15,7 +16,7 @@ const handleUpload = async (event) => {
     try {
       const response = await store.uploadMasterFile(file)
       console.log('File uploaded successfully', response);
-      this.$router.push('/editing');
+      router.push('/editing');
     } catch (error) {
       console.error('Error uploading file', error);
     }

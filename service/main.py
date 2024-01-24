@@ -135,7 +135,19 @@ def video_generation(pitch_id: int):
 @app.get("/tasks/{task_id}")
 def task_status(task_id):
     task = orm.Task.get_by_task_id(task_id)
-    return {"task": task}
+    if task.document_id:
+        document = orm.Document.get_by_doc_id(task.document_id)
+        return {
+            "status": task.process_stage,
+            "progress": document.progress,
+            "message": None,
+        }
+    else:
+        return {
+            "status": task.process_stage,
+            "progress": "0:0",
+            "message": None,
+        }
 
 
 @app.get("/{pitch_id}/transcript")

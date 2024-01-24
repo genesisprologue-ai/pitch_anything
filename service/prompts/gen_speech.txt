@@ -24,8 +24,11 @@ You are a presenter presenting a PPT to your audience. Given the following corne
 No speech has written so far. Start from begining.
 {% endif %}
 
-Current page:
+Current page draft:
 ```
 {{current_page}}
 ```
-Respond speech content only without any explanation.
+Respond speech content only without any explanation, pay attention to the following:
+1. You only greet audience once at the beginning of your speech. Pay attention to `page before` and `page after` to avoid repeat greeting.
+2. Pay attention to the `cornerstone` idea, it is the main idea of your speech.
+3. Pay attention on how you should transition from `page before` to `current page`.
