@@ -75,7 +75,9 @@ class TranscribeStage(Enum):
 
 class AudioStage(Enum):
     PROCESSING = 101
-    FINISH = 102
+    AUDIO = 102
+    VIDEO = 103
+    FINISH = 104
     FAILED = 199
 
 

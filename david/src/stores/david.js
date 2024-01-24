@@ -1,9 +1,11 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   uploadMasterFile as uploadMasterFileApi,
   fetchTranscript as fetchTranscriptApi,
   fetchTaskStatus as fetchTaskStatusApi,
+  updateTranscript as updateTranscriptApi,
+  tts,
   BASE_URL
 } from '@/api/ApiService'
 
@@ -11,7 +13,8 @@ export const useDavidStore = defineStore('david', () => {
   // State to hold the PDF URL
   const pitchId = ref(1)
   const pdfUrl = ref('')
-  const masterTaskId = ref('')
+  const masterTaskId = ref('708ff06a-828d-4e46-9ef3-4fa13b05065a')
+  const videoTaskId = ref('')
 
 
   const getPdfURL = () => {
@@ -22,9 +25,6 @@ export const useDavidStore = defineStore('david', () => {
   const referenceFiles = ref([
     // { filename: 'Document 1', linkedChapter: 'Chapter 1', type: 'PDF', keywords: ['example', 'document'], id: 1 },
   ])
-
-  // The currently edited master file (if necessary)
-  const currentMasterFile = ref(null)
 
   // Transcript data segmented into chapters
   const transcripts = ref([])
@@ -69,6 +69,22 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
+  async function fetchVideoTaskStatus() {
+    try {
+      const result = await fetchTaskStatusApi(videoTaskId.value)
+      console.log(result)
+      // check document progress, progress is in 1:10 format for 10 page document processing at page 1
+      const [currentPage, totalPages] = result.progress.split(':')
+      const percentage = (parseInt(currentPage) / parseInt(totalPages)) * 100
+      return Math.round(percentage) // Round the percentage to the nearest whole number
+    } catch (error) {
+      console.error('Error fetching master task status:', error)
+      // Handle error
+      throw error
+    }
+  }
+
+
   // Action to fetch and set the transcript for the master file
   async function fetchTranscript() {
     try {
@@ -91,17 +107,52 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
+  async function updateTranscript() {
+    try {
+      const result = await updateTranscriptApi(pitchId.value, transcripts.value)
+      console.log(result)
+
+      if (result.message !== null) {
+        console.log(result.message)
+      } else {
+        transcripts.value = result.transcripts
+      }
+
+      return transcripts.value
+    } catch (error) {
+      console.error('Error fetching transcript:', error)
+      // Handle error
+      throw error
+    }
+  }
+
+  async function generateVideo() {
+    try {
+      const result = await tts(pitchId.value)
+      console.log(result)
+      videoTaskId.value = result.task_id
+      return result
+    } catch (error) {
+      console.error('Error generating video:', error)
+      // Handle error
+      throw error
+    }
+  }
+
 
   return {
     pitchId,
     pdfUrl,
+    masterTaskId,
     referenceFiles,
-    currentMasterFile,
     transcripts,
     getPdfURL,
     uploadMasterFile,
     uploadEmbeddingFile,
     fetchTranscript,
     fetchMasterTaskStatus,
+    fetchVideoTaskStatus,
+    updateTranscript,
+    generateVideo
   }
 })

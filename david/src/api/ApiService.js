@@ -41,8 +41,8 @@ export async function fetchTranscript(pitchId) {
   return response.data
 }
 
-export async function updateTranscript(pitchId) {
-  const response = await axios.put(`${BASE_URL}/${pitchId}/transcript`)
+export async function updateTranscript(pitchId, transcripts) {
+  const response = await axios.put(`${BASE_URL}/${pitchId}/transcript`, transcripts)
   return response.data
 }
 

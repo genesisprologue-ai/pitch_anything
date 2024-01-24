@@ -23,8 +23,6 @@ def cornerstone_from_cover(file_path, multimodal_model):
     cornerstone = multimodal_model.generate_content(
         [
             prompts.CORNERSTONE_PROMPT,
-            ref_img,
-            prompts.CORNERSTONE_PROMPT_EXMPALE,
             cover_img,
         ]
     )
@@ -94,7 +92,7 @@ def draft_transcribe(file_paths, document):
                         descri_img,
                     ]
                 )
-                print(f"\npage {i+1}: ", response.text)
+                print(f"\npage {i + 1}: ", response.text)
                 draft = PageDraft(
                     page=i + 1,
                     cornerstone=cornerstone,
@@ -104,7 +102,7 @@ def draft_transcribe(file_paths, document):
                 )
                 page_drafts.append(draft)
                 if document:
-                    document.progress = f"{i+1}:{len(file_paths)}"
+                    document.progress = f"{i + 1}:{len(file_paths)}"
                     document.save()
                 break
             except Exception as e:
@@ -154,7 +152,6 @@ def gen_transcript(drafts: List[PageDraft]) -> str:
         speeches.append(response.choices[0].message.content)
 
     return json.dumps(speeches)
-
 
 # if __name__ == "__main__":
 #     page_drafts = None

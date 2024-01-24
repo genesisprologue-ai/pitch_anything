@@ -1,6 +1,8 @@
 import json
 import os
 
+import cv2
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from pdf2image import convert_from_path
 from celery import Celery, states
 
@@ -41,7 +43,7 @@ def transcribe(self, param):
     document = orm.Document.get_by_doc_id(param.get("doc_id"))
     try:
         for i in range(len(images)):
-            image_path = os.path.join(image_folder, f"slide_{i}.jpg")
+            image_path = os.path.join(image_folder, f"slide_{i + 1}.jpg")
             # Save pages as images in the pdf
             os.makedirs(os.path.dirname(image_path), exist_ok=True)
             images[i].save(image_path, "JPEG")
@@ -135,12 +137,71 @@ def ssml_audio_sync(self, param):
         retries = 0
         while retries < 3:
             try:
-                audio_success = speech_synthesize(ssml, pitch_id)
+                audio_success = speech_synthesize(ssml, pitch_id, i + 1)
                 if audio_success:
                     break
             except Exception as e:
                 print(e)
                 retries += 1
+
+    task.process_stage = orm.AudioStage.AUDIO.value
+    task.save()
+
+    # create video
+    image_dir = os.path.join("uploads", f"{param.get('pitch_id')}")
+    image_paths = []
+    for file in os.listdir(image_dir):
+        if file.endswith(".jpg"):
+            image_paths.append(os.path.join(image_dir, file))
+    image_paths.sort()
+
+    # Initialize an empty list to hold individual video clips
+    video_clips = []
+    video_name = os.path.join("media", str(pitch_id), "video.mp4")
+    tmp_path = os.path.join('media', str(pitch_id), 'temp.avi')
+
+    for i, img in enumerate(image_paths):
+        # Assuming audio files have same name as images but with .wav extension
+        audio_file = os.path.abspath(os.path.join("media", str(pitch_id), str(i + 1) + ".wav"))
+
+        # Get the duration of the audio file
+        audio_clip = AudioFileClip(audio_file)
+        audio_duration = audio_clip.duration
+
+        # Load the image
+        frame = cv2.imread(img)
+        height, width, layers = frame.shape
+
+        # Create a video clip from the image
+        video_clip = cv2.VideoWriter(tmp_path, 0, 1, (width, height))
+
+        # Display the image for the duration of the corresponding audio file
+        num_frames = int(audio_duration * 1)  # 1 fps
+
+        for _ in range(num_frames):
+            video_clip.write(frame)
+
+        # Release the video writer
+        video_clip.release()
+
+        # Load the video clip with moviepy to attach audio
+        video_clip = VideoFileClip(tmp_path)
+        video_clip = video_clip.set_audio(audio_clip)
+        video_clips.append(video_clip)
+
+    # Concatenate all the video clips
+    final_clip = concatenate_videoclips(video_clips, method="compose")
+
+    # Write the result to a file
+    final_clip.write_videofile(video_name, codec='libx264', fps=1, audio_codec='aac')
+
+    # Clean up temporary files
+    for clip in video_clips:
+        clip.close()
+    os.remove(tmp_path)
+
+    # Release resources
+    cv2.destroyAllWindows()
 
     task.process_stage = orm.AudioStage.FINISH.value
     task.save()

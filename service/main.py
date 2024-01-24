@@ -1,7 +1,7 @@
 import json
 import os
-from typing import List
-from fastapi import FastAPI, UploadFile
+from typing import Any, List
+from fastapi import FastAPI, HTTPException, UploadFile
 import orm
 from schema import PageTranscript
 from tasks import transcribe, resume, ssml_audio_sync
@@ -135,13 +135,28 @@ def video_generation(pitch_id: int):
 @app.get("/tasks/{task_id}")
 def task_status(task_id):
     task = orm.Task.get_by_task_id(task_id)
-    if task.document_id:
+    if task.document_id > 0:
         document = orm.Document.get_by_doc_id(task.document_id)
         return {
             "status": task.process_stage,
             "progress": document.progress,
             "message": None,
         }
+    elif task.task_type == 1:  # video task
+        progress = "0:0"
+        if task.process_stage != orm.AudioStage.FAILED.value:
+            if task.process_stage == orm.AudioStage.PROCESSING.value:
+                progress = "1:4"
+            elif task.process_stage == orm.AudioStage.AUDIO.value:
+                progress = "2:4"
+            elif task.process_stage == orm.AudioStage.VIDEO.value:
+                progress = "3:4"
+            elif task.process_stage == orm.AudioStage.FINISH.value:
+                progress = "4:4"
+
+            return {"status": task.process_stage, "progress": progress, "message": None}
+        else:
+            return {"status": task.process_stage, "progress": progress, "message": "failed"}
     else:
         return {
             "status": task.process_stage,
@@ -154,18 +169,23 @@ def task_status(task_id):
 def get_transcript(pitch_id: int):
     pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
     if not pitch:
-        return {"message": "pitch not found"}
+        raise HTTPException(status_code=404, detail="Pitch not found")
     return {"transcripts": json.loads(pitch.transcript), "message": None}
 
 
 @app.put("/{pitch_id}/transcript")
-def update_transcript(pitch_id: int, transcripts: List[PageTranscript]):
+def update_transcript(pitch_id: int, transcripts: List[Any]):
     pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
     if not pitch:
-        return {"message": "pitch not found"}
-    pitch.transcript = json.dumps(transcripts)
-    pitch.save()
-    return {"message": None}
+        raise HTTPException(status_code=404, detail="Pitch not found")
+    try:
+        pitch.transcript = json.dumps(
+            transcripts, default=str, ensure_ascii=False
+        )  # default=str helps avoid serialization errors
+        pitch.save()
+    except Exception as e:  # Catch any unexpected errors
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"message": "Transcript updated successfully"}  # More informative message
 
 
 @app.get("/{pitch_id}/master_doc")
