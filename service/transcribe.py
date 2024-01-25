@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import List
 import vertexai
@@ -9,8 +10,9 @@ from vertexai.preview.generative_models import (
 from schema import PageDraft, PageTranscript
 from config import PROJECT_ID, LOC
 from llm import llm_client
-import pickle
 import prompts.prompts as prompts
+
+logger = logging.getLogger(__name__)
 
 
 def cornerstone_from_cover(file_path, multimodal_model):
@@ -27,7 +29,7 @@ def cornerstone_from_cover(file_path, multimodal_model):
         ]
     )
 
-    print("cornerstone: ", cornerstone.text)
+    logger.info(f"cornerstone: {cornerstone.text}")
 
     return cornerstone.text
 
@@ -52,7 +54,8 @@ def draft_transcribe(file_paths, document):
     }
 
     Args:
-        file_paths (str): list of file paths of the images
+        document:
+        file_paths (list(str)): list of file paths of the images
     Return:
         list: list of page draft
     """
@@ -68,7 +71,8 @@ def draft_transcribe(file_paths, document):
         # fetch cornerstone
         try:
             cornerstone = cornerstone_from_cover(file_paths[0], multimodal_model)
-            break
+            if cornerstone != '':
+                break
         except Exception as e:
             print(e)
             retries += 1
@@ -79,11 +83,13 @@ def draft_transcribe(file_paths, document):
     page_transcribe_prompt = prompts.PAGE_TRANSCRIBE_PROMPT.format(
         cornerstone_idea=cornerstone
     )
+    logger.info(f"page_transcribe_prompt: {page_transcribe_prompt}")
     page_drafts = []
-    for i, fpath in enumerate(file_paths):
+    for i, fpath in enumerate(file_paths[1:]):
         # Get the directory of the current file
         retries = 0
         descri_img = VertextImg.load_from_file(fpath)
+        print(descri_img)
         while retries < 3:
             try:
                 response = multimodal_model.generate_content(
@@ -92,64 +98,61 @@ def draft_transcribe(file_paths, document):
                         descri_img,
                     ]
                 )
-                print(f"\npage {i + 1}: ", response.text)
+                logger.info(f"\npage {i + 1}: {response.text}")
                 draft = PageDraft(
-                    page=i + 1,
+                    page=i + 2,
                     cornerstone=cornerstone,
                     draft=response.text,
                     draft_from_images="",  # extract images and links
                     links=[],
                 )
-                page_drafts.append(draft)
-                if document:
-                    document.progress = f"{i + 1}:{len(file_paths)}"
-                    document.save()
-                break
+                if response.text != "":
+                    page_drafts.append(draft)
+                    if document:
+                        document.progress = f"{i + 1}:{len(file_paths)}"
+                        document.save()
+                    break
             except Exception as e:
                 print(e)
                 retries += 1
-
+    page_drafts.insert(0, PageDraft(page=1, cornerstone=cornerstone, draft=cornerstone))
     return page_drafts
 
 
 def gen_transcript(drafts: List[PageDraft]) -> str:
-    """Gather cornerstone and draft. Create a readable transcript based on the content
-    without timestamp.
-
-    Args:
-        drafts (list[PageDraft]): A list of draft content
-    """
     speeches = []
     llm_cli = llm_client()
+    prev_speech = ''
     for i, draft in enumerate(drafts):
-        backward_ref = []
+        backward_ref = ""
         forward_ref = ""
         if i > 0:
-            backward_ref.append(drafts[i - 1].draft)
-        backward_ref.append(draft.draft)
+            backward_ref = drafts[i - 1].draft
         if i < len(drafts) - 1:
-            forward_ref += drafts[i + 1].draft
+            forward_ref = drafts[i + 1].draft
 
-        # gen transcript based backward/foward ref and cornerstone
+        # gen transcript based on backward/forward ref and cornerstone
         sys_prompt, _ = prompts.load_prompt(
             {
                 "backward_ref": backward_ref,
                 "forward_ref": forward_ref,
                 "cornerstone": draft.cornerstone,
                 "current_page": draft.draft,
-                "current_speech": "".join(speeches),
+                "speech_from_last_page": prev_speech
             },
             "gen_speech.txt",
         )
-        print("----------------")
-        print(sys_prompt)
-        print("----------------")
+        logger.info(f'-----{sys_prompt}')
         response = llm_cli.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=[{"role": "system", "content": sys_prompt}],
         )
-        print(response)
-        speeches.append(response.choices[0].message.content)
+        logger.info(response)
+        new_speech = response.choices[0].message.content
+
+        # Check if the new speech is not repeating the old speech content
+        prev_speech = new_speech
+        speeches.append(new_speech)
 
     return json.dumps(speeches)
 

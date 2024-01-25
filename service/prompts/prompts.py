@@ -2,12 +2,12 @@ import os
 
 import jinja2
 
+CORNERSTONE_PROMPT = "This is a cover page of a document. Please describe the cornerstone idea of the document in summary. Focus on this page only."
+CORNERSTONE_PROMPT_EXAMPLE = "Example: The document outlines a set of principles and values that emphasize the importance of communication, respect, excellence, and innovation in the workplace from Netflix."
 
-CORNERSTONE_PROMPT = "Please define the cornerstone idea from powerpoint deck cover in details with your best knowledge."
-CORNERSTONE_PROMPT_EXMPALE = "Example: The document outlines a set of principles and values that emphasize the importance of communication, respect, excellence, and innovation in the workplace from Netflix."
-
-
-PAGE_TRANSCRIBE_PROMPT = "You are given a page of a powerpoint file. Please describe the page in details with your best knowledge and references based on the cornerstone idea: {cornerstone_idea}. Reply as detailed transcript."
+PAGE_TRANSCRIBE_PROMPT = ("You are given a page of a powerpoint file. "
+                          "Please draft detailed transcript with infomation you gatthered from page and cornerstone idea: `{cornerstone_idea}`. "
+                          "Reply transcript of this page only.")
 
 
 def parse_model_params(config):
@@ -67,7 +67,7 @@ def load_prompt(curr_input, prompt_to_use):
         if prompt_file.endswith(".txt"):
             if prompt_file == prompt_to_use:
                 with open(
-                    f"{os.path.join(os.path.dirname(__file__))}/{prompt_file}", "r"
+                        f"{os.path.join(os.path.dirname(__file__))}/{prompt_file}", "r"
                 ) as f:
                     prompt_file_content = f.read()
                     # split into config and prompt

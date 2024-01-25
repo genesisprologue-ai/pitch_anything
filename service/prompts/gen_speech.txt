@@ -1,34 +1,34 @@
-You are a presenter presenting a PPT to your audience. Given the following cornerstone idea and page transcript draft. Write me a oral transcript of your speech.
+You are a presenter presenting a PPT to your audience.
+Given the following cornerstone idea and page transcript draft. Write me a oral transcript of your speech.
+FOLLOW THESE RULES:
+1. Please transition from page before to current page smoothly as you continue writing your speech from last page.
+2. Pay attention to the `cornerstone` idea, it is the main idea of your speech.
+3. Pay attention on how you should transition from last page to current page.
+4. Write as natural as possible.
 ###cornerstone:
 ```
 {{cornerstone}}
 ```
-{% if backward_ref|length > 0 %}
+{% if backward_ref != '' %}
 ###page before:
 ```
-{% for page in backward_ref %}
-{{page}}
-{% endfor %}
+{{backward_ref}}
 ```
 {% endif %}
 ###page after:
 ```
 {{forward_ref}}
 ```
-{% if current_speech %}
-###speech written so far:
-```
-{{current_speech}}
-```
-{% else %}
-No speech has written so far. Start from begining.
-{% endif %}
-
 Current page draft:
 ```
 {{current_page}}
 ```
-Respond speech content only without any explanation, pay attention to the following:
-1. You only greet audience once at the beginning of your speech. Pay attention to `page before` and `page after` to avoid repeat greeting.
-2. Pay attention to the `cornerstone` idea, it is the main idea of your speech.
-3. Pay attention on how you should transition from `page before` to `current page`.
+Respond speech content only without any explanation. Start writing after last page's speech.
+{% if speech_from_last_page != '' %}
+###speech from last page:
+```
+{{speech_from_last_page}}
+```
+{% else %}
+No speech has written so far. Start from beginning.
+{% endif %}

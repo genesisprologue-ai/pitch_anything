@@ -3,14 +3,14 @@ import os
 from typing import Any, List
 from fastapi import FastAPI, HTTPException, UploadFile
 import orm
-from schema import PageTranscript
+
 from tasks import transcribe, resume, ssml_audio_sync
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-origins = origins = [
+origins = [
     "http://localhost",
     "http://localhost:8080",
     "http://localhost:3000",

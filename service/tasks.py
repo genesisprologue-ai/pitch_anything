@@ -1,12 +1,14 @@
 import json
 import os
-
+import logging
 import cv2
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from pdf2image import convert_from_path
 from celery import Celery, states
+from celery.signals import after_setup_logger
 
 import orm
+from schema import PageDraft
 from tts import text_to_ssml, speech_synthesize
 from transcribe import draft_transcribe, gen_transcript
 
@@ -18,6 +20,19 @@ celery = Celery(
     backend="redis://localhost:6379/0",
 )
 
+logger = logging.getLogger(__name__)
+
+
+@after_setup_logger.connect
+def setup_loggers(logger, *args, **kwargs):
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # add filehandler
+    fh = logging.FileHandler('logs.log')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
 
 # --------------celery tasks----------------
 @celery.task(bind=True)
@@ -25,6 +40,7 @@ def transcribe(self, param):
     # create task entry
     task_id = self.request.id
     print(f"task id: {task_id}")
+    pitch = orm.Pitch(id=param.get("pitch_id")).get()
     task = orm.Task(
         task_id=task_id,
         pitch_id=param.get("pitch_id"),
@@ -57,7 +73,11 @@ def transcribe(self, param):
     # kick off transcribe
     task.process_stage = orm.TranscribeStage.DRAFT.value
     task.save()
+    # save draft
     page_drafts = draft_transcribe(image_paths, document)
+    page_drafts_json = [draft.dict() for draft in page_drafts]
+    pitch.drafts = json.dumps(page_drafts_json)
+    pitch.save()
 
     # write transcripts
     task.process_stage = orm.TranscribeStage.GEN_TRANSCRIPT.value
@@ -65,7 +85,6 @@ def transcribe(self, param):
     speech_content = gen_transcript(page_drafts)
 
     # save speech for audio dialog generation
-    pitch = orm.Pitch(id=param.get("pitch_id")).get()
     pitch.transcript = speech_content
     pitch.save()
 
@@ -79,6 +98,7 @@ def resume(self, param):
     # lookup task associated with pitch
     task = orm.Task.get_by_pitch_id(pitch_id=param.get("pitch_id"))
     pitch = orm.Pitch.get_by_pitch_id(pitch_id=param.get("pitch_id"))
+    master_doc = orm.Document.get_master_by_pitch_id(pitch_id=param.get("pitch_id"))
     print(f"task stage {task.process_stage}")
     stage = orm.TranscribeStage(task.process_stage)
     if stage == orm.TranscribeStage.SEGMENT:  # send to drafting
@@ -92,14 +112,16 @@ def resume(self, param):
         for file in os.listdir(image_dir):
             if file.endswith(".jpg"):
                 image_paths.append(os.path.join(image_dir, file))
-        page_drafts = draft_transcribe(image_paths)
-        pitch.drafts = json.dumps(page_drafts)
+        page_drafts = draft_transcribe(image_paths, master_doc)
+        page_drafts_json = [draft.dict() for draft in page_drafts]
+        pitch.drafts = json.dumps(page_drafts_json)
         pitch.save()
 
     # continue
     if stage == orm.TranscribeStage.DRAFT:  # send to trascribe
         # write transcripts
-        page_drafts = json.loads(pitch.drafts)
+        page_drafts_dict = json.loads(pitch.drafts)
+        page_drafts = [PageDraft(**draft) for draft in page_drafts_dict]
         task.process_stage = orm.TranscribeStage.GEN_TRANSCRIPT.value
         task.save()
         stage = orm.TranscribeStage(task.process_stage)
@@ -107,6 +129,7 @@ def resume(self, param):
         # save speech for audio dialog generation
         pitch = orm.Pitch(id=param.get("pitch_id")).get()
         pitch.transcript = speech_content
+
         pitch.save()
 
     if stage == orm.TranscribeStage.FINISH:  # send to finish
@@ -153,16 +176,19 @@ def ssml_audio_sync(self, param):
     for file in os.listdir(image_dir):
         if file.endswith(".jpg"):
             image_paths.append(os.path.join(image_dir, file))
-    image_paths.sort()
+    image_paths.sort(key=lambda x: int(x.split("_")[1].split(".")[0]))
 
     # Initialize an empty list to hold individual video clips
     video_clips = []
     video_name = os.path.join("media", str(pitch_id), "video.mp4")
-    tmp_path = os.path.join('media', str(pitch_id), 'temp.avi')
-
+    tmp_paths = []
     for i, img in enumerate(image_paths):
+        tmp_path = os.path.join('media', str(pitch_id), f'{i + 1}_temp.avi')
+        tmp_paths.append(tmp_path)
         # Assuming audio files have same name as images but with .wav extension
         audio_file = os.path.abspath(os.path.join("media", str(pitch_id), str(i + 1) + ".wav"))
+        print(f"audio file: {audio_file}")
+        print(f"image: {img}")
 
         # Get the duration of the audio file
         audio_clip = AudioFileClip(audio_file)
@@ -198,7 +224,12 @@ def ssml_audio_sync(self, param):
     # Clean up temporary files
     for clip in video_clips:
         clip.close()
-    os.remove(tmp_path)
+
+    for file_path in tmp_paths:
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error occurred while trying to remove {file_path}: {e}")
 
     # Release resources
     cv2.destroyAllWindows()
