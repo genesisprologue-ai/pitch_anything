@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  frontend:
+    build: ./david
+    ports:
+      - "80:80"
+    networks:
+      - david-network
+
+  backend:
+    build:
+      context: ./service
+      dockerfile: Dockerfile.base
+    command: poetry run uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - david-network
+
+  celery:
+    build:
+      context: ./service
+      dockerfile: Dockerfile.base
+    command: poetry run celery -A tasks worker --loglevel=info
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - david-network
+
+  redis:
+    image: "redis:alpine"
+    networks:
+      - david-network
+
+networks:
+  david-network:
+    driver: bridge
