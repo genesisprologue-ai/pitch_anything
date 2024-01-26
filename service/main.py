@@ -4,7 +4,7 @@ from typing import Any, List, Annotated
 from fastapi import FastAPI, HTTPException, UploadFile, Form
 import orm
 from common import all_pitch_folders_path
-from service import rag
+import rag
 
 from tasks import transcribe, resume, ssml_audio_sync
 from fastapi.responses import FileResponse
