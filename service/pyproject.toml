@@ -24,6 +24,13 @@ python-multipart = "^0.0.6"
 insanely-fast-whisper = "^0.0.13"
 opencv-python = "^4.9.0.80"
 moviepy = "^1.0.3"
+python-ffmpeg-video-streaming = "^0.1.15"
+chroma = "^0.2.0"
+unstructured = "^0.12.2"
+langchain-community = "^0.0.16"
+pypdf = "^4.0.0"
+langchain = "^0.1.4"
+chromadb = "^0.4.22"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.11"

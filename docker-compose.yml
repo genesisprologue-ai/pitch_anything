@@ -12,7 +12,7 @@ services:
     build:
       context: ./service
       dockerfile: Dockerfile.base
-    command: poetry run uvicorn main:app --host 0.0.0.0 --port 8000
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     networks:
       - david-network
 
@@ -20,7 +20,7 @@ services:
     build:
       context: ./service
       dockerfile: Dockerfile.base
-    command: poetry run celery -A tasks worker --loglevel=info
+    command: celery -A tasks worker --loglevel=info
     depends_on:
       - redis
     environment:

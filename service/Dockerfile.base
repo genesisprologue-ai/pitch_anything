@@ -19,7 +19,9 @@ RUN apt-get update -y && \
 
 RUN python3.10 -m pip install --no-cache-dir --upgrade pip \
     && python3.10 -m pip install -U setuptools \
-    && python3.10 -m pip install --no-cache-dir poetry
+    && python3.10 -m pip install --no-cache-dir poetry \ 
+    && python3.10 -m pip install --no-cache-dir uvicorn \
+    && python3.10 -m pip install --no-cache-dir celery 
 # Install dependencies
 RUN poetry export --without-hashes -f requirements.txt -o requirements.txt
 RUN python3.10 -m pip install --no-cache-dir -r /code/requirements.txt --user
