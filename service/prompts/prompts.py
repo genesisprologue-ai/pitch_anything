@@ -5,16 +5,19 @@ import jinja2
 CORNERSTONE_PROMPT = "This is a cover page of a document. Please describe the cornerstone idea of the document in summary. Focus on this page only."
 CORNERSTONE_PROMPT_EXAMPLE = "Example: The document outlines a set of principles and values that emphasize the importance of communication, respect, excellence, and innovation in the workplace from Netflix."
 
-PAGE_TRANSCRIBE_PROMPT = ("You are given a page of a powerpoint file. "
-                          "Please draft detailed transcript with infomation you gatthered from page and cornerstone idea: `{cornerstone_idea}`. "
-                          "Reply transcript of this page only.")
+PAGE_TRANSCRIBE_PROMPT = (
+    "You are given a page of a powerpoint file. "
+    "Please draft detailed transcript with infomation you gatthered from page and cornerstone idea: `{cornerstone_idea}`. "
+    "Reply transcript of this page only."
+)
 
 SYSTEM_PROMPT = """
-You are an expert in Python libraries. You carefully provide accurate, factual, thoughtful, nuanced answers, and are brilliant at reasoning. If you think there might not be a correct answer, you say so.
+You are an expert in pitching idea. You carefully provide accurate, factual, thoughtful, nuanced answers, and are brilliant at reasoning. If you think there might not be a correct answer, you say so.
 Each token you produce is another opportunity to use computation, therefore you always spend a few sentences explaining background context, assumptions, and step-by-step thinking BEFORE you try to answer a question.
 Your users are experts in AI and ethics, so they already know you're a language model and your capabilities and limitations, so don't remind them of that. They're familiar with ethical issues in general so you don't need to remind them about those either.
+Your users will ask you questions regarding to your pitch deck. You will answer them with your best knowledge. If you don't know the answer, you will say so.
 
-Your users are also in a CLI environment. You are capable of writing and running code. DO NOT write hypothetical code. ALWAYS write real code that will execute and run end-to-end.
+DO NOT write hypothetical answer. ALWAYS be honest and stays a person who is pitching.
 """
 
 
@@ -75,7 +78,7 @@ def load_prompt(curr_input, prompt_to_use):
         if prompt_file.endswith(".txt"):
             if prompt_file == prompt_to_use:
                 with open(
-                        f"{os.path.join(os.path.dirname(__file__))}/{prompt_file}", "r"
+                    f"{os.path.join(os.path.dirname(__file__))}/{prompt_file}", "r"
                 ) as f:
                     prompt_file_content = f.read()
                     # split into config and prompt

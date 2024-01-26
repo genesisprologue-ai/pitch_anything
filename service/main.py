@@ -99,9 +99,10 @@ async def resume_transcribe(pitch_id: int):
     return {"task_id": task.task_id, "message": None}
 
 
-@app.post("/{pitch_id}/upload_embedding")
-async def upload_embedding(pitch_id: int, file: Annotated[UploadFile, Form()],
-                           keywords: Annotated[str, Form()]):
+@app.post("/{pitch_id}/reference_doc")
+async def upload_embedding(
+    pitch_id: int, file: Annotated[UploadFile, Form()], keywords: Annotated[str, Form()]
+):
     source_stream = await file.read()
     # upload file to uploads folder
     _, ref_folder = all_pitch_folders_path(pitch_id)
@@ -118,7 +119,7 @@ async def upload_embedding(pitch_id: int, file: Annotated[UploadFile, Form()],
     document.save()
 
     try:
-        rag.load_and_embed(pitch_id, upload_path, keywords.split(','))
+        rag.load_and_embed(pitch_id, upload_path, keywords.split(","))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -163,7 +164,11 @@ def task_status(task_id):
 
             return {"status": task.process_stage, "progress": progress, "message": None}
         else:
-            return {"status": task.process_stage, "progress": progress, "message": "failed"}
+            return {
+                "status": task.process_stage,
+                "progress": progress,
+                "message": "failed",
+            }
     else:
         return {
             "status": task.process_stage,
@@ -226,6 +231,7 @@ def conversation(pitch_id: int, query: str):
     # request vector db and llm
     # repose should have context bound result with reference url
     context_window = 500
-    context_message = rag.retrieve_context(query, k=10, filters={'pitch_id': pitch_id})
+    context_message = rag.retrieve_context(query, k=10, filters={"pitch_id": pitch_id})
     prompt = rag.construct_prompt(messages, context_message, context_window)
-    return {"message": "response from GPT3", "references": "www.example.com"}
+    # save user response
+    return {"message": prompt}

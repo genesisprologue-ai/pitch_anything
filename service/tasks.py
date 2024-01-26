@@ -6,6 +6,9 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from pdf2image import convert_from_path
 from celery import Celery, states
 from celery.signals import after_setup_logger
+import ffmpeg_streaming
+from ffmpeg_streaming import Formats
+
 
 import orm
 from schema import PageDraft
@@ -25,10 +28,12 @@ logger = logging.getLogger(__name__)
 
 @after_setup_logger.connect
 def setup_loggers(logger, *args, **kwargs):
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     # add filehandler
-    fh = logging.FileHandler('logs.log')
+    fh = logging.FileHandler("logs.log")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -183,10 +188,12 @@ def ssml_audio_sync(self, param):
     video_name = os.path.join("media", str(pitch_id), "video.mp4")
     tmp_paths = []
     for i, img in enumerate(image_paths):
-        tmp_path = os.path.join('media', str(pitch_id), f'{i + 1}_temp.avi')
+        tmp_path = os.path.join("media", str(pitch_id), f"{i + 1}_temp.avi")
         tmp_paths.append(tmp_path)
         # Assuming audio files have same name as images but with .wav extension
-        audio_file = os.path.abspath(os.path.join("media", str(pitch_id), str(i + 1) + ".wav"))
+        audio_file = os.path.abspath(
+            os.path.join("media", str(pitch_id), str(i + 1) + ".wav")
+        )
         print(f"audio file: {audio_file}")
         print(f"image: {img}")
 
@@ -219,7 +226,7 @@ def ssml_audio_sync(self, param):
     final_clip = concatenate_videoclips(video_clips, method="compose")
 
     # Write the result to a file
-    final_clip.write_videofile(video_name, codec='libx264', fps=1, audio_codec='aac')
+    final_clip.write_videofile(video_name, codec="libx264", fps=1, audio_codec="aac")
 
     # Clean up temporary files
     for clip in video_clips:
@@ -233,6 +240,12 @@ def ssml_audio_sync(self, param):
 
     # Release resources
     cv2.destroyAllWindows()
+
+    # create m3u8
+    video = ffmpeg_streaming.input(video_name)
+    hls = video.hls(Formats.h264())
+    hls.auto_generate_representations()
+    hls.output(os.path.join("media", str(pitch_id), "index.m3u8"))
 
     task.process_stage = orm.AudioStage.FINISH.value
     task.save()
