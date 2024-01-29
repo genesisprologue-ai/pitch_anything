@@ -29,6 +29,9 @@ export const useDavidStore = defineStore('david', () => {
   // Transcript data segmented into chapters
   const transcripts = ref([])
 
+  const getVideoURL = (name) => {
+    return BASE_URL + '/pitch_video/' + pitchId.value + `/${name}`
+  }
   // Actions to upload the master file and receive the PDF URL
   async function uploadMasterFile(file) {
 
@@ -153,6 +156,7 @@ export const useDavidStore = defineStore('david', () => {
     fetchMasterTaskStatus,
     fetchVideoTaskStatus,
     updateTranscript,
-    generateVideo
+    generateVideo,
+    getVideoURL
   }
 })
