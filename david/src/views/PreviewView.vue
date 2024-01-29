@@ -1,5 +1,5 @@
 <script setup>
-import { defineComponent, shallowRef, shallowReactive, computed } from 'vue'
+import { ref, defineComponent, shallowRef, shallowReactive, computed } from 'vue'
 import { VideoPlayer } from '@videojs-player/vue'
 import 'video.js/dist/video-js.css'
 import { useDavidStore } from '@/stores/david'
@@ -7,7 +7,7 @@ import { useDavidStore } from '@/stores/david'
 const store = useDavidStore();
 
 // 
-const messages = [
+const messages = ref([
   { "role": "ai", "content": "welcome" },
   { "role": "user", "content": "hello" },
   { "role": "ai", "content": "how are you?" },
@@ -17,8 +17,7 @@ const messages = [
   { "role": "ai", "content": "nice to meet you" },
   { "role": "user", "content": "nice to meet you too" },
   { "role": "ai", "content": "bye" },
-  { "role": "user", "content": "bye" },
-]
+])
 
 const indexM3U8URL = store.getVideoURL('index.m3u8');
 
@@ -58,6 +57,22 @@ const handleMounted = (payload) => {
   state.value = payload.state
   player.value = payload.player
 }
+
+const pauseOnUserInquiry = (pause) => {
+  console.log('pauseOnUserInquiry', pause)
+  if (pause) {
+    player.value.pause()
+  } else {
+    player.value.play()
+  }
+}
+
+const handleNewMessage = async (message) => {
+  player.value.pause()
+  messages.value.push(message)
+  const response = await store.sendConversation(message.content)
+  messages.value.push(response)
+}
 </script>
 <template>
   <main class="flex flex-col items-center">
@@ -70,7 +85,7 @@ const handleMounted = (payload) => {
       </video-player>
     </div>
     <div class="flex justify-center" style="width: 800px;">
-      <ChatBox :messages="messages"></ChatBox>
+      <ChatBox :messages="messages" @new-message="handleNewMessage" @pause-video="pauseOnUserInquiry"></ChatBox>
     </div>
   </main>
 </template>

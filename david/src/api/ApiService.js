@@ -50,3 +50,12 @@ export async function tts(pitchId) {
   const response = await axios.post(`${BASE_URL}/${pitchId}/tts`)
   return response.data
 }
+
+export async function conversation(pitchId, message) {
+  const response = await axios.post(`${BASE_URL}/${pitchId}/conversation`, {"query": message}, {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  return response.data
+}

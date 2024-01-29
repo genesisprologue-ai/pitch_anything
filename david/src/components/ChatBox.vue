@@ -1,23 +1,29 @@
 <template>
-    <div class="chat-box flex flex-col pt-5 w-full">
-        <div class="messages-container flex flex-col h-full" style="min-height: 200px; border: 1px solid #ccc;">
-            <div v-for="(message, index) in messages" :key="index" class="message">
-                <div v-if="message.role === 'user'" class="user-message">
+    <div class="chat-box w-full mx-auto border border-gray-300 mt-5 overflow-hidden">
+        <div class="messages-container flex flex-col p-4 overflow-y-auto" ref="messagesContainer" style="height: 300px;">
+            <div v-for="(message, index) in messages" :key="index" class="message"
+                :class="{ 'self-end': message.role === 'user', 'self-start': message.role !== 'user' }">
+                <span class="message-content inline-block p-3 rounded-lg"
+                    :class="{ 'bg-green-200': message.role === 'user', 'bg-blue-200': message.role !== 'user' }">
                     {{ message.content }}
-                </div>
-                <div v-else class="ai-message">
-                    {{ message.content }}
-                </div>
+                </span>
             </div>
         </div>
-        <div class="user-input">
-            <input v-model="userInput" @keyup.enter="sendMessage" placeholder="Type your message..." />
-            <button @click="sendMessage">Send</button>
+        <div class="user-input flex p-3 bg-gray-100">
+            <input v-model="userInput" @keydown.capture="checkInteruption" @keyup.enter="sendMessage"
+                placeholder="Type your message..."
+                class="user-input-field flex-1 p-3 border border-gray-300 rounded-full mr-3" />
+            <button @click="sendMessage"
+                class="send-button bg-green-500 hover:bg-green-600 text-white py-2 px-6 rounded-full focus:outline-none">
+                Send
+            </button>
         </div>
     </div>
 </template>
-
+  
 <script>
+import { ref, watchEffect } from 'vue';
+
 export default {
     name: 'ChatBox',
     props: {
@@ -26,51 +32,43 @@ export default {
             required: true
         }
     },
-    data() {
-        return {
-            userInput: ''
-        };
-    },
-    methods: {
-        sendMessage() {
-            if (this.userInput.trim() !== '') {
-                this.$emit('new-message', {
+    setup(props, { emit }) {
+        const userInput = ref('');
+        const messagesContainer = ref(null);
+
+        const sendMessage = () => {
+            if (userInput.value.trim() !== '') {
+                emit('new-message', {
                     role: 'user',
-                    content: this.userInput.trim()
+                    content: userInput.value.trim()
                 });
-                this.userInput = '';
+                userInput.value = '';
             }
-        }
+        };
+
+        const checkInteruption = (event) => {
+            if (userInput.value.length > 6 && event.key !== 'Enter') {
+                // pause video
+                emit('pause-video', true);
+            } else {
+                emit('pause-video', false);
+            }
+        };
+
+        // Auto-scroll to the bottom of the messages container
+        watchEffect(() => {
+            if (messagesContainer.value) {
+                const { scrollHeight, clientHeight } = messagesContainer.value;
+                messagesContainer.value.scrollTop = scrollHeight - clientHeight;
+            }
+        });
+
+        return {
+            userInput,
+            sendMessage,
+            checkInteruption,
+            messagesContainer,
+        };
     }
 };
 </script>
-
-<style scoped>
-.chat-box {
-    /* Add your styles here */
-}
-
-.user-message {
-    /* Add your styles here */
-    float: right;
-    background-color: white;
-    border: 1px solid #ccc;
-    margin-top: 10px;
-    padding: 10px;
-    margin-right: 5px;
-    margin-bottom: 5px;
-}
-
-.ai-message {
-    /* Add your styles here */
-    float: left;
-    background-color: lightblue;
-    margin-top: 10px;
-    margin-left: 5px;
-    padding: 10px;
-}
-
-.user-input {
-    /* Add your styles here */
-}
-</style>

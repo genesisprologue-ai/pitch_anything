@@ -1,13 +1,14 @@
 import json
 import os
 from typing import Any, List, Annotated
-from fastapi import FastAPI, HTTPException, UploadFile, Form
+import uuid
+from fastapi import FastAPI, HTTPException, UploadFile, Form, Request
 import orm
 from common import all_pitch_folders_path
 import rag
 
 from tasks import transcribe, resume, ssml_audio_sync
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -36,17 +37,18 @@ async def ping():
 
 
 @app.post("/upload_master")
-async def upload_master(file: UploadFile):
-    # create pitch session
+async def upload_master(request: Request, file: UploadFile):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
     pitch = orm.Pitch(published=False)
     pitch.save()
 
-    # create pitch folder
     pitch_folder, references_folder = all_pitch_folders_path(pitch.id)
 
     os.makedirs(pitch_folder, exist_ok=True)
     source_stream = await file.read()
-    # upload file to uploads folder
     upload_path = os.path.join(pitch_folder, file.filename)
     with open(upload_path, "wb") as f:
         f.write(source_stream)
@@ -59,8 +61,8 @@ async def upload_master(file: UploadFile):
         storage_path=upload_path,
     )
     master_doc.save()
+
     try:
-        # send task
         task_resp = transcribe.delay(
             {
                 "pitch_id": pitch.id,
@@ -71,18 +73,21 @@ async def upload_master(file: UploadFile):
         )
 
         if not task_resp.id:
-            return {"pitch_id": pitch.id, "task_id": task_resp.id, "message": "failed"}
+            raise HTTPException(
+                status_code=500, detail="Failed to start transcription task"
+            )
 
         master_doc.processed = 1
         master_doc.save()
 
-        return {"pitch_id": pitch.id, "task_id": task_resp.id, "message": None}
+        response = JSONResponse(
+            {"pitch_id": pitch.id, "task_id": task_resp.id, "message": None}
+        )
+        response.set_cookie(key="session_id", value=session_id, httponly=True)
+        return response
+
     except Exception as e:
-        return {
-            "pitch_id": None,
-            "task_id": None,
-            "message": f"create task failed: {e}",
-        }
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/resume_transcribe/{pitch_id}")
@@ -211,9 +216,9 @@ def serving_master_doc(pitch_id: int):
     return FileResponse(master_doc.storage_path, media_type="application/pdf")
 
 
-@app.get("/{pitch_id}/pitch_video")
-def deliver_hls(pitch_id: int):
-    hls_path = os.path.join("media", str(pitch_id), "index.m3u8")
+@app.get("/pitch_video/{pitch_id}/{file_name}")
+def deliver_hls(pitch_id: int, file_name: str):
+    hls_path = os.path.join("media", str(pitch_id), file_name)
     if not os.path.exists(hls_path):
         raise HTTPException(status_code=404, detail="Pitch video not found")
     else:
@@ -221,11 +226,15 @@ def deliver_hls(pitch_id: int):
 
 
 @app.post("/{pitch_id}/conversation")
-def conversation(pitch_id: int, query: str):
+async def conversation(pitch_id: int, request: Request):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=403, detail="Session not found")
     pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
-    #
+    request_dict = await request.json()
+    query = request_dict["query"]
     messages = [{"role": "user", "content": query}]
     # send message to GPT3
     # request vector db and llm
@@ -234,4 +243,4 @@ def conversation(pitch_id: int, query: str):
     context_message = rag.retrieve_context(query, k=10, filters={"pitch_id": pitch_id})
     prompt = rag.construct_prompt(messages, context_message, context_window)
     # save user response
-    return {"message": prompt}
+    return {"content": prompt}

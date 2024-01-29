@@ -6,6 +6,7 @@ import {
   fetchTaskStatus as fetchTaskStatusApi,
   updateTranscript as updateTranscriptApi,
   tts,
+  conversation as conversationApi,
   BASE_URL
 } from '@/api/ApiService'
 
@@ -142,6 +143,18 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
+  async function sendConversation(message) {
+    try {
+      const result = await conversationApi(pitchId.value, message)
+      console.log(result)
+      return { "role": "ai", "content": result.content }
+    } catch (error) {
+      console.error('Error generating video:', error)
+      // Handle error
+      throw error
+    }
+  }
+
 
   return {
     pitchId,
@@ -157,6 +170,7 @@ export const useDavidStore = defineStore('david', () => {
     fetchVideoTaskStatus,
     updateTranscript,
     generateVideo,
-    getVideoURL
+    getVideoURL,
+    sendConversation,
   }
 })
