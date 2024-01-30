@@ -130,11 +130,21 @@ class Task(Base):
                 session.rollback()
                 print(f"Error occurred: {e}")
 
+    @classmethod
+    def get_by_pitch_uid(cls, pitch_uid):
+        with local_session() as session:
+            try:
+                return session.query(cls).filter_by(pitch_uid=pitch_uid).first()
+            except Exception as e:
+                session.rollback()
+                print(f"Error occurred: {e}")
+
 
 class Pitch(Base):
     __tablename__ = "pitches"
 
     id = Column(Integer, primary_key=True)
+    pitch_uid = Column(VARCHAR(37), nullable=False)
     drafts = Column(String, nullable=True)
     transcript = Column(String, nullable=True)
     published = Column(Boolean, nullable=False, default=False)
@@ -165,6 +175,15 @@ class Pitch(Base):
         with local_session() as session:
             try:
                 return session.query(cls).filter_by(id=pitch_id).first()
+            except Exception as e:
+                session.rollback()
+                print(f"Error occurred: {e}")
+
+    @classmethod
+    def get_by_pitch_uid(cls, pitch_uid):
+        with local_session() as session:
+            try:
+                return session.query(cls).filter_by(pitch_uid=pitch_uid).first()
             except Exception as e:
                 session.rollback()
                 print(f"Error occurred: {e}")

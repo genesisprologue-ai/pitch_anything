@@ -42,7 +42,7 @@ async def upload_master(request: Request, file: UploadFile):
     if not session_id:
         session_id = str(uuid.uuid4())
 
-    pitch = orm.Pitch(published=False)
+    pitch = orm.Pitch(published=False, pitch_uid=session_id)
     pitch.save()
 
     pitch_folder, references_folder = all_pitch_folders_path(pitch.id)
@@ -65,7 +65,7 @@ async def upload_master(request: Request, file: UploadFile):
     try:
         task_resp = transcribe.delay(
             {
-                "pitch_id": pitch.id,
+                "pitch_uid": session_id,
                 "doc_id": master_doc.id,
                 "file_name": file.filename,
                 "storage_path": upload_path,
@@ -81,7 +81,7 @@ async def upload_master(request: Request, file: UploadFile):
         master_doc.save()
 
         response = JSONResponse(
-            {"pitch_id": pitch.id, "task_id": task_resp.id, "message": None}
+            {"pitch_uid": session_id, "task_id": task_resp.id, "message": None}
         )
         response.set_cookie(key="session_id", value=session_id, httponly=True)
         return response
@@ -90,15 +90,15 @@ async def upload_master(request: Request, file: UploadFile):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/resume_transcribe/{pitch_id}")
-async def resume_transcribe(pitch_id: int):
-    task = orm.Task.get_by_pitch_id(pitch_id=pitch_id)
+@app.post("/resume_transcribe/{pitch_uid}")
+async def resume_transcribe(pitch_uid: str):
+    task = orm.Task.get_by_pitch_uid(pitch_id=pitch_uid)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     # send task
     _ = resume.delay(
         {
-            "pitch_id": pitch_id,
+            "pitch_uid": pitch_uid,
         }
     )
     return {"task_id": task.task_id, "message": None}
@@ -131,13 +131,13 @@ async def upload_embedding(
     return {"message": None}
 
 
-@app.post("/{pitch_id}/tts")
-def transcript_tts(pitch_id: int):
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+@app.post("/{pitch_uid}/tts")
+def transcript_tts(pitch_uid: str):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
     task_resp = ssml_audio_sync.delay(
-        {"speeches": json.loads(pitch.transcript), "pitch_id": pitch_id}
+        {"speeches": json.loads(pitch.transcript), "pitch_uid": pitch_uid}
     )
     if not task_resp.id:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -148,6 +148,9 @@ def transcript_tts(pitch_id: int):
 @app.get("/tasks/{task_id}")
 def task_status(task_id):
     task = orm.Task.get_by_task_id(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     if task.document_id > 0:
         document = orm.Document.get_by_doc_id(task.document_id)
         return {
@@ -182,17 +185,17 @@ def task_status(task_id):
         }
 
 
-@app.get("/{pitch_id}/transcript")
-def get_transcript(pitch_id: int):
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+@app.get("/{pitch_uid}/transcript")
+def get_transcript(pitch_uid: str):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
     return {"transcripts": json.loads(pitch.transcript), "message": None}
 
 
-@app.put("/{pitch_id}/transcript")
-def update_transcript(pitch_id: int, transcripts: List[Any]):
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+@app.put("/{pitch_uid}/transcript")
+def update_transcript(pitch_uid: str, transcripts: List[Any]):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
     try:
@@ -205,12 +208,12 @@ def update_transcript(pitch_id: int, transcripts: List[Any]):
     return {"message": "Transcript updated successfully"}  # More informative message
 
 
-@app.get("/{pitch_id}/master_doc")
-def serving_master_doc(pitch_id: int):
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+@app.get("/{pitch_uid}/master_doc")
+def serving_master_doc(pitch_uid: str):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
-    master_doc = orm.Document.get_master_by_pitch_id(pitch_id=pitch_id)
+    master_doc = orm.Document.get_master_by_pitch_id(pitch_id=pitch.id)
     if not master_doc:
         raise HTTPException(status_code=404, detail="Master doc not found")
     return FileResponse(master_doc.storage_path, media_type="application/pdf")
@@ -225,12 +228,12 @@ def deliver_hls(pitch_id: int, file_name: str):
         return FileResponse(hls_path, media_type="application/x-mpegURL")
 
 
-@app.post("/{pitch_id}/conversation")
-async def conversation(pitch_id: int, request: Request):
+@app.post("/{pitch_uid}/conversation")
+async def conversation(pitch_uid: str, request: Request):
     session_id = request.cookies.get("session_id")
     if not session_id:
         raise HTTPException(status_code=403, detail="Session not found")
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=pitch_id)
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
     request_dict = await request.json()
@@ -240,7 +243,7 @@ async def conversation(pitch_id: int, request: Request):
     # request vector db and llm
     # repose should have context bound result with reference url
     context_window = 500
-    context_message = rag.retrieve_context(query, k=10, filters={"pitch_id": pitch_id})
+    context_message = rag.retrieve_context(query, k=10, filters={"pitch_id": pitch.id})
     prompt = rag.construct_prompt(messages, context_message, context_window)
     # save user response
     return {"content": prompt}

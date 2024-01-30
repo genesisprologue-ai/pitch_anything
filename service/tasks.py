@@ -101,8 +101,8 @@ def transcribe(self, param):
 @celery.task(bind=True)
 def resume(self, param):
     # lookup task associated with pitch
-    task = orm.Task.get_by_pitch_id(pitch_id=param.get("pitch_id"))
-    pitch = orm.Pitch.get_by_pitch_id(pitch_id=param.get("pitch_id"))
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=param.get("pitch_uid"))
+    task = orm.Task.get_by_pitch_id(pitch_id=pitch.id)
     master_doc = orm.Document.get_master_by_pitch_id(pitch_id=param.get("pitch_id"))
     print(f"task stage {task.process_stage}")
     stage = orm.TranscribeStage(task.process_stage)
