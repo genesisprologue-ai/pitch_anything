@@ -1,15 +1,17 @@
 import json
 import os
-from typing import Any, List, Annotated
 import uuid
+from typing import Any, List, Annotated
 from fastapi import FastAPI, HTTPException, UploadFile, Form, Request
-import orm
-from common import all_pitch_folders_path
-import rag
-
-from tasks import transcribe, resume, ssml_audio_sync
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from llm import get_remote_chat_response
+
+import orm
+import rag
+import cache
+from common import all_pitch_folders_path
+from tasks import transcribe, resume, ssml_audio_sync
 
 app = FastAPI()
 
@@ -228,22 +230,58 @@ def deliver_hls(pitch_id: int, file_name: str):
         return FileResponse(hls_path, media_type="application/x-mpegURL")
 
 
+@app.get("/{pitch_uid}/clear_context")
+async def clear_context(pitch_uid: str):
+    new_session_id = str(uuid.uuid4())
+    response = JSONResponse({"message": None})
+    response.set_cookie("user_session_id", new_session_id, httponly=True)
+    return response
+
+
 @app.post("/{pitch_uid}/conversation")
 async def conversation(pitch_uid: str, request: Request):
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=403, detail="Session not found")
+    user_session_id = request.cookies.get("user_session_id")
+    if not user_session_id:
+        user_session_id = request.headers.get("user_session_id")
+        if not user_session_id:
+            # this happens when user clears current session to remove all current context
+            user_session_id = str(uuid.uuid4())
+
     pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
+
     request_dict = await request.json()
+
     query = request_dict["query"]
-    messages = [{"role": "user", "content": query}]
+
+    # read from cache first
+    history = cache.get_cache(user_session_id)
+    messages = []
+    if history:
+        messages = json.loads(history)
+    messages.append({"role": "user", "content": query})
     # send message to GPT3
     # request vector db and llm
     # repose should have context bound result with reference url
-    context_window = 500
     context_message = rag.retrieve_context(query, k=10, filters={"pitch_id": pitch.id})
-    prompt = rag.construct_prompt(messages, context_message, context_window)
-    # save user response
-    return {"content": prompt}
+    if not context_message:
+        context_message = {"role": "user", "content": "No context found"}
+    prompt = rag.construct_prompt(messages, context_message, context_window=3000)
+
+    # cache messages
+    cache.set_cache(user_session_id, json.dumps(prompt[1:], ensure_ascii=False))
+
+    # async def event_generator():
+    #     async for message in get_remote_chat_response(prompt):
+    #         if await request.is_disconnected():
+    #             break
+    #         yield message
+    content = get_remote_chat_response(prompt)
+
+    # response = StreamingResponse(event_generator(), media_type="text/event-stream")
+    # response.set_cookie("user_session_id", user_session_id, httponly=True)
+    response = JSONResponse({"content": content})
+    response.set_cookie("user_session_id", user_session_id, httponly=True)
+
+    return content

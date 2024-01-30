@@ -5,7 +5,7 @@ import tiktoken
 from langchain_community.document_loaders import PyPDFLoader
 import chromadb
 from chromadb.utils import embedding_functions
-from prompts.prompts import SYSTEM_PROMPT
+from prompts.prompts import SYSTEM_PROMPT, CITE_PROMPT
 
 chroma_cli = None
 default_ef = None
@@ -87,7 +87,11 @@ def retrieve_context(query, k=10, filters={}):
     return {"role": "user", "content": prompt_with_context}
 
 
-def construct_prompt(messages, context_message, context_window):
+def construct_prompt(
+    messages,
+    context_message,
+    context_window=3000,
+):
     """
     Constructs a RAG (Retrieval-Augmented Generation) prompt by balancing the token count of messages and context_message.
     If the total token count exceeds the maximum limit, it adjusts the token count of each to maintain a 1:1 proportion.
@@ -101,7 +105,6 @@ def construct_prompt(messages, context_message, context_window):
     Returns:
     List[dict]: The constructed RAG prompt.
     """
-    # Get the encoding; default to cl100k_base
     encoding = tiktoken.get_encoding("cl100k_base")
 
     # 1) calculate tokens
@@ -112,6 +115,8 @@ def construct_prompt(messages, context_message, context_window):
     # 2) construct prompt
     prompts = messages.copy()
     prompts.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+    prompts.insert(-1, {"role": "user", "content": CITE_PROMPT})
+
     # 3) find how many tokens each list has
     messages_token_count = len(
         encoding.encode(
@@ -143,11 +148,8 @@ def construct_prompt(messages, context_message, context_window):
             max_messages_count += max_context_count - context_token_count
 
     # 5) Cut each list to the max count
-
     # Cut down messages
     while messages_token_count > max_messages_count:
-        if len(prompts) <= 2:
-            break
         removed_encoding = encoding.encode(
             f"<|im_start|>{prompts[1]['role']}\n{prompts[1]['content']}<|im_end|>"
         )
