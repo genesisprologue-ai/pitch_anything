@@ -26,8 +26,8 @@ export async function uploadMasterFile(file) {
   }
 }
 
-export async function resumeTranscribe(pitchId) {
-  const response = await axios.post(`${BASE_URL}/${pitchId}/resume_transcribe`)
+export async function resumeTranscribe(pitchUid) {
+  const response = await axios.post(`${BASE_URL}/${pitchUid}/resume_transcribe`)
   return response.data
 }
 
@@ -36,26 +36,17 @@ export async function fetchTaskStatus(taskId) {
   return response.data
 }
 
-export async function fetchTranscript(pitchId) {
-  const response = await axios.get(`${BASE_URL}/${pitchId}/transcript`)
+export async function fetchTranscript(pitchUid) {
+  const response = await axios.get(`${BASE_URL}/${pitchUid}/transcript`)
   return response.data
 }
 
-export async function updateTranscript(pitchId, transcripts) {
-  const response = await axios.put(`${BASE_URL}/${pitchId}/transcript`, transcripts)
+export async function updateTranscript(pitchUid, transcripts) {
+  const response = await axios.put(`${BASE_URL}/${pitchUid}/transcript`, transcripts)
   return response.data
 }
 
-export async function tts(pitchId) {
-  const response = await axios.post(`${BASE_URL}/${pitchId}/tts`)
-  return response.data
-}
-
-export async function conversation(pitchId, message) {
-  const response = await axios.post(`${BASE_URL}/${pitchId}/conversation`, {"query": message}, {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
+export async function tts(pitchUid) {
+  const response = await axios.post(`${BASE_URL}/${pitchUid}/tts`)
   return response.data
 }

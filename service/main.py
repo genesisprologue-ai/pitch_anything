@@ -221,9 +221,9 @@ def serving_master_doc(pitch_uid: str):
     return FileResponse(master_doc.storage_path, media_type="application/pdf")
 
 
-@app.get("/pitch_video/{pitch_id}/{file_name}")
-def deliver_hls(pitch_id: int, file_name: str):
-    hls_path = os.path.join("media", str(pitch_id), file_name)
+@app.get("/pitch_video/{pitch_uid}/{file_name}")
+def deliver_hls(pitch_uid: str, file_name: str):
+    hls_path = os.path.join("media", pitch_uid, file_name)
     if not os.path.exists(hls_path):
         raise HTTPException(status_code=404, detail="Pitch video not found")
     else:
@@ -238,7 +238,7 @@ async def clear_context(pitch_uid: str):
     return response
 
 
-@app.post("/{pitch_uid}/conversation")
+@app.post("/{pitch_uid}/streaming")
 async def conversation(pitch_uid: str, request: Request):
     user_session_id = request.cookies.get("user_session_id")
     if not user_session_id:
@@ -254,7 +254,7 @@ async def conversation(pitch_uid: str, request: Request):
     request_dict = await request.json()
 
     query = request_dict["query"]
-
+    print(query)
     # read from cache first
     history = cache.get_cache(user_session_id)
     messages = []

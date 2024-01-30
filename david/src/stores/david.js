@@ -6,20 +6,19 @@ import {
   fetchTaskStatus as fetchTaskStatusApi,
   updateTranscript as updateTranscriptApi,
   tts,
-  conversation as conversationApi,
   BASE_URL
 } from '@/api/ApiService'
 
 export const useDavidStore = defineStore('david', () => {
   // State to hold the PDF URL
-  const pitchId = ref(1)
+  const pitchUid = ref('8d013241-cc4f-4504-b2ba-02eba9d3d593')
   const pdfUrl = ref('')
   const masterTaskId = ref('708ff06a-828d-4e46-9ef3-4fa13b05065a')
   const videoTaskId = ref('')
 
 
   const getPdfURL = () => {
-    return `${BASE_URL}/${pitchId.value}/master_doc`
+    return `${BASE_URL}/${pitchUid.value}/master_doc`
   }
 
   // List of reference files for the master file
@@ -31,7 +30,7 @@ export const useDavidStore = defineStore('david', () => {
   const transcripts = ref([])
 
   const getVideoURL = (name) => {
-    return BASE_URL + '/pitch_video/' + pitchId.value + `/${name}`
+    return BASE_URL + '/pitch_video/' + pitchUid.value + `/${name}`
   }
   // Actions to upload the master file and receive the PDF URL
   async function uploadMasterFile(file) {
@@ -39,8 +38,8 @@ export const useDavidStore = defineStore('david', () => {
     try {
       const result = await uploadMasterFileApi(file)
       console.log(result)
-      pitchId.value = result.pitch_id
-      pdfUrl.value = BASE_URL + '/' + pitchId.value + '/master_doc'
+      pitchUid.value = result.pitch_id
+      pdfUrl.value = BASE_URL + '/' + pitchUid.value + '/master_doc'
       masterTaskId.value = result.task_id
       return result
     } catch (error) {
@@ -92,7 +91,7 @@ export const useDavidStore = defineStore('david', () => {
   // Action to fetch and set the transcript for the master file
   async function fetchTranscript() {
     try {
-      const result = await fetchTranscriptApi(pitchId.value)
+      const result = await fetchTranscriptApi(pitchUid.value)
       console.log(result)
 
       if (result.message !== null) {
@@ -113,7 +112,7 @@ export const useDavidStore = defineStore('david', () => {
 
   async function updateTranscript() {
     try {
-      const result = await updateTranscriptApi(pitchId.value, transcripts.value)
+      const result = await updateTranscriptApi(pitchUid.value, transcripts.value)
       console.log(result)
 
       if (result.message !== null) {
@@ -132,7 +131,7 @@ export const useDavidStore = defineStore('david', () => {
 
   async function generateVideo() {
     try {
-      const result = await tts(pitchId.value)
+      const result = await tts(pitchUid.value)
       console.log(result)
       videoTaskId.value = result.task_id
       return result
@@ -143,21 +142,13 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
-  async function sendConversation(message) {
-    try {
-      const result = await conversationApi(pitchId.value, message)
-      console.log(result)
-      return { "role": "ai", "content": result.content }
-    } catch (error) {
-      console.error('Error generating video:', error)
-      // Handle error
-      throw error
-    }
+  async function getStreamingURL() {
+    return `${BASE_URL}/${pitchUid.value}/streaming`
   }
 
 
   return {
-    pitchId,
+    pitchUid,
     pdfUrl,
     masterTaskId,
     referenceFiles,
@@ -171,6 +162,6 @@ export const useDavidStore = defineStore('david', () => {
     updateTranscript,
     generateVideo,
     getVideoURL,
-    sendConversation,
+    getStreamingURL,
   }
 })

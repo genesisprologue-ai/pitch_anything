@@ -40,7 +40,7 @@ const generateVideo = async () => {
   }
 }
 
-// Fetch transcripts from backend using pitchId on store
+// Fetch transcripts from backend using pitchUid on store
 onMounted(async () => {
   await store.fetchTranscript()
   // After fetching, set the initial transcript based on the first page
@@ -89,16 +89,16 @@ watch(page, (newPageIndex) => {
         <div class="flex flex-row justify-center items-center">
           <button @click="updatePage('prev')">
             <svg class="w-[16px] h-[16px] text-gray-800 dark:text-white" aria-hidden="true"
-                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16" />
             </svg>
           </button>
           <span class="px-3">{{ page }} / {{ pages }}</span>
           <button @click="updatePage('next')">
             <svg class="w-[16px] h-[16px] text-gray-800 dark:text-white" aria-hidden="true"
-                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 1v16M1 9h16" />
+                d="M9 1v16M1 9h16" />
             </svg>
           </button>
         </div>
@@ -112,17 +112,17 @@ watch(page, (newPageIndex) => {
         </div>
         <div class="scrollable-list-section flex flex-row h-full justify-between m-1">
           <ReferenceFileTable :referenceFiles="referenceFiles" :fileUploadHandler="fileUploadHandler"
-                              :fileRemoveHandler="fileRemoveHandler"></ReferenceFileTable>
+            :fileRemoveHandler="fileRemoveHandler"></ReferenceFileTable>
         </div>
         <div class="flex flex-col justify-center">
           <button type="button"
-                  class="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                  @click="updateTranscript()">
+            class="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            @click="updateTranscript()">
             Save Transcript
           </button>
           <button type="button"
-                  class="text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800"
-                  @click="generateVideo()">
+            class="text-white bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800"
+            @click="generateVideo()">
             Create Video
           </button>
         </div>

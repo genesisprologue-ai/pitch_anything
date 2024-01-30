@@ -3,6 +3,7 @@ import { ref, defineComponent, shallowRef, shallowReactive, computed } from 'vue
 import { VideoPlayer } from '@videojs-player/vue'
 import 'video.js/dist/video-js.css'
 import { useDavidStore } from '@/stores/david'
+import { fetchEventSource, EventStreamContentType } from '@microsoft/fetch-event-source';
 
 const store = useDavidStore();
 
@@ -67,11 +68,57 @@ const pauseOnUserInquiry = (pause) => {
   }
 }
 
+const streaming = async (url, message) => {
+  class RetriableError extends Error { }
+  class FatalError extends Error { }
+
+  fetchEventSource(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: message,
+    }),
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type') === EventStreamContentType) {
+        return; // everything's good
+      } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        // client-side errors are usually non-retriable:
+        throw new FatalError();
+      } else {
+        throw new RetriableError();
+      }
+    },
+    onmessage(msg) {
+      // if the server emits an error message, throw an exception
+      // so it gets handled by the onerror callback below:
+      console.log(msg)
+      if (msg.event === 'FatalError') {
+        throw new FatalError(msg.data);
+      }
+    },
+    onclose() {
+      // if the server closes the connection unexpectedly, retry:
+      throw new RetriableError();
+    },
+    onerror(err) {
+      if (err instanceof FatalError) {
+        throw err; // rethrow to stop the operation
+      } else {
+        // do nothing to automatically retry. You can also
+        // return a specific retry interval here.
+      }
+    }
+  })
+}
+
 const handleNewMessage = async (message) => {
   player.value.pause()
   messages.value.push(message)
-  const response = await store.sendConversation(message.content)
-  messages.value.push(response)
+  // messages.value.push({ "role": "ai", "content": "" })
+  const streamingURL = await store.getStreamingURL()
+  streaming(streamingURL, message)
 }
 </script>
 <template>
