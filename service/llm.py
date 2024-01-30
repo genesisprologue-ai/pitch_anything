@@ -1,16 +1,28 @@
 import os
 from dotenv import load_dotenv
+from openai import AsyncAzureOpenAI
 import openai
 
+llm_cli = None
 
-def llm_client():
+
+def llm_client() -> AsyncAzureOpenAI:
+    global llm_cli
     load_dotenv()
     openai.api_type = "azure"
     openai.api_base = os.getenv("AZURE_OPENAI_ENDPOINT")
     openai.api_key = os.getenv("AZURE_OPENAI_KEY")
     openai.api_version = "2023-07-01-preview"
 
-    return
+    if not llm_cli:
+        llm_cli = AsyncAzureOpenAI(
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            api_version="2023-07-01-preview",
+            api_key=os.getenv("AZURE_OPENAI_KEY"),
+        )
+
+    return llm_cli
 
 
 async def get_remote_chat_response(messages):
@@ -24,17 +36,16 @@ async def get_remote_chat_response(messages):
     Returns:
     str: The streamed OpenAI chat response.
     """
-    llm_client()
+    llm_cli = llm_client()
     try:
-        response = openai.chat.completions.create(
+        response = await llm_cli.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=messages,
             temperature=0.2,
             stream=True,
         )
 
-        for chunk in response:
-            print(chunk)
+        async for chunk in response:
             if len(chunk.choices) > 0:
                 current_context = chunk.choices[0].delta.content
                 yield current_context

@@ -30,6 +30,7 @@ app.add_middleware(
 )
 
 orm.init_db()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 # --------------web api routes----------------
@@ -238,7 +239,7 @@ async def clear_context(pitch_uid: str):
     return response
 
 
-@app.post("/{pitch_uid}/streaming")
+@app.get("/{pitch_uid}/streaming")
 async def conversation(pitch_uid: str, request: Request):
     user_session_id = request.cookies.get("user_session_id")
     if not user_session_id:
@@ -251,9 +252,7 @@ async def conversation(pitch_uid: str, request: Request):
     if not pitch:
         raise HTTPException(status_code=404, detail="Pitch not found")
 
-    request_dict = await request.json()
-
-    query = request_dict["query"]
+    query = request.query_params.get("query")
     print(query)
     # read from cache first
     history = cache.get_cache(user_session_id)
@@ -273,11 +272,15 @@ async def conversation(pitch_uid: str, request: Request):
     cache.set_cache(user_session_id, json.dumps(prompt[1:], ensure_ascii=False))
 
     async def event_generator():
-        async for message in get_remote_chat_response(prompt):
-            if await request.is_disconnected():
-                break
-            if message:
-                yield message
+        try:
+            async for message in get_remote_chat_response(prompt):
+                if await request.is_disconnected():
+                    break
+                if message:
+                    yield f"data: {message} \n\n"  # required by SSE format
+            return
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     # content = get_remote_chat_response(prompt)
 

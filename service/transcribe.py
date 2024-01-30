@@ -122,7 +122,7 @@ def draft_transcribe(file_paths, document):
 
 def gen_transcript(drafts: List[PageDraft]) -> str:
     speeches = []
-    llm_client()
+    llm_cli = llm_client()
     prev_speech = ""
     for i, draft in enumerate(drafts):
         backward_ref = ""
@@ -144,7 +144,7 @@ def gen_transcript(drafts: List[PageDraft]) -> str:
             "gen_speech.txt",
         )
         logger.info(f"-----{sys_prompt}")
-        response = openai.chat.completions.create(
+        response = llm_cli.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=[{"role": "system", "content": sys_prompt}],
         )

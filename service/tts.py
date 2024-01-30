@@ -1,14 +1,14 @@
-import os
 import json
-from uuid import uuid4
-from dotenv import load_dotenv
+import os
+
 import azure.cognitiveservices.speech as speechsdk
-import prompts.prompts as prompts
-from llm import llm_client
-import openai
 import torch
+from dotenv import load_dotenv
 from transformers import pipeline
 from transformers.utils import is_flash_attn_2_available
+
+import prompts.prompts as prompts
+from llm import llm_client
 
 
 def text_to_ssml(text):
@@ -20,8 +20,8 @@ def text_to_ssml(text):
     print("----------------")
     print(sys_prompt)
     print("----------------")
-    llm_client()
-    response = openai.chat.completions.create(
+    llm_cli = llm_client()
+    response = llm_cli.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         messages=[{"role": "system", "content": sys_prompt}],
     )

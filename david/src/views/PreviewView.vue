@@ -1,35 +1,19 @@
 <script setup>
-import { ref, defineComponent, shallowRef, shallowReactive, computed } from 'vue'
+import { ref, defineComponent, shallowRef, shallowReactive, computed, onMounted, onUnmounted } from 'vue'
 import { VideoPlayer } from '@videojs-player/vue'
 import 'video.js/dist/video-js.css'
 import { useDavidStore } from '@/stores/david'
-import { fetchEventSource, EventStreamContentType } from '@microsoft/fetch-event-source';
 
 const store = useDavidStore();
-
-// 
-const messages = ref([
-  { "role": "ai", "content": "welcome" },
-  { "role": "user", "content": "hello" },
-  { "role": "ai", "content": "how are you?" },
-  { "role": "user", "content": "good" },
-  { "role": "ai", "content": "what is your name?" },
-  { "role": "user", "content": "david" },
-  { "role": "ai", "content": "nice to meet you" },
-  { "role": "user", "content": "nice to meet you too" },
-  { "role": "ai", "content": "bye" },
-])
+const messages = ref([])
 
 const indexM3U8URL = store.getVideoURL('index.m3u8');
-
 const source = shallowRef([
   {
     src: indexM3U8URL,
     type: 'application/x-mpegURL',
   },
 ]);
-
-console.log(source.value)
 
 const player = shallowRef()
 const state = shallowRef()
@@ -53,6 +37,8 @@ const mediaConfig = computed(() => ({
   tracks: []
 }))
 
+let eventSource;
+
 const handleMounted = (payload) => {
   console.log('Advanced player mounted', payload)
   state.value = payload.state
@@ -68,49 +54,18 @@ const pauseOnUserInquiry = (pause) => {
   }
 }
 
-const streaming = async (url, message) => {
-  class RetriableError extends Error { }
-  class FatalError extends Error { }
-
-  fetchEventSource(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: message,
-    }),
-    async onopen(response) {
-      if (response.ok && response.headers.get('content-type') === EventStreamContentType) {
-        return; // everything's good
-      } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        // client-side errors are usually non-retriable:
-        throw new FatalError();
-      } else {
-        throw new RetriableError();
-      }
-    },
-    onmessage(msg) {
-      // if the server emits an error message, throw an exception
-      // so it gets handled by the onerror callback below:
-      console.log(msg)
-      if (msg.event === 'FatalError') {
-        throw new FatalError(msg.data);
-      }
-    },
-    onclose() {
-      // if the server closes the connection unexpectedly, retry:
-      throw new RetriableError();
-    },
-    onerror(err) {
-      if (err instanceof FatalError) {
-        throw err; // rethrow to stop the operation
-      } else {
-        // do nothing to automatically retry. You can also
-        // return a specific retry interval here.
-      }
-    }
-  })
+const streaming = async (url) => {
+  eventSource = new EventSource(url);
+  messages.value.push({ "role": "ai", "content": "" })
+  eventSource.onmessage = (event) => {
+    console.log('eventSource.onmessage', event)
+    const message = event.data
+    messages.value[messages.value.length - 1].content += message
+  }
+  eventSource.onerror = (event) => {
+    console.log('eventSource.onerror', event)
+    eventSource.close()
+  }
 }
 
 const handleNewMessage = async (message) => {
@@ -118,8 +73,15 @@ const handleNewMessage = async (message) => {
   messages.value.push(message)
   // messages.value.push({ "role": "ai", "content": "" })
   const streamingURL = await store.getStreamingURL()
-  streaming(streamingURL, message)
+  const url = streamingURL + `?query=${message.content}` // todo: use URL object
+  streaming(url)
 }
+
+onUnmounted(() => {
+  if (eventSource) {
+    eventSource.close()
+  }
+})
 </script>
 <template>
   <main class="flex flex-col items-center">
