@@ -24,22 +24,20 @@ async def get_remote_chat_response(messages):
     Returns:
     str: The streamed OpenAI chat response.
     """
-
+    llm_client()
     try:
         response = openai.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=messages,
             temperature=0.2,
-            # stream=True,
+            stream=True,
         )
 
         for chunk in response:
             print(chunk)
-            # current_context = chunk.choices[0].delta.content
-            # yield current_context
-            yield chunk
-        # print(response)
-        # content = response.choices[0].message.content
+            if len(chunk.choices) > 0:
+                current_context = chunk.choices[0].delta.content
+                yield current_context
 
     except openai.AuthenticationError as error:
         print("401 Authentication Error:", error)

@@ -272,16 +272,18 @@ async def conversation(pitch_uid: str, request: Request):
     # cache messages
     cache.set_cache(user_session_id, json.dumps(prompt[1:], ensure_ascii=False))
 
-    # async def event_generator():
-    #     async for message in get_remote_chat_response(prompt):
-    #         if await request.is_disconnected():
-    #             break
-    #         yield message
-    content = get_remote_chat_response(prompt)
+    async def event_generator():
+        async for message in get_remote_chat_response(prompt):
+            if await request.is_disconnected():
+                break
+            if message:
+                yield message
 
-    # response = StreamingResponse(event_generator(), media_type="text/event-stream")
-    # response.set_cookie("user_session_id", user_session_id, httponly=True)
-    response = JSONResponse({"content": content})
+    # content = get_remote_chat_response(prompt)
+
+    response = StreamingResponse(event_generator(), media_type="text/event-stream")
     response.set_cookie("user_session_id", user_session_id, httponly=True)
+    # response = JSONResponse({"content": content})
+    # response.set_cookie("user_session_id", user_session_id, httponly=True)
 
-    return content
+    return response
