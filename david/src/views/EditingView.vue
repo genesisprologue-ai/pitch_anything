@@ -1,17 +1,22 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import router from '@/router'
+import { useRoute } from 'vue-router'
 import { VuePDF, usePDF } from '@tato30/vue-pdf'
 import { useDavidStore } from '@/stores/david'
-// Use the Pinia store
+
+
 const store = useDavidStore()
 
+const route = useRoute()
+let pitchUid = route.query.pitch
+
 const page = ref(1)
-const pageURL = store.getPdfURL()
-const { pdf, pages } = usePDF(pageURL)
+store.pitchUid = pitchUid
+
+const { pdf, pages } = usePDF(store.getPdfURL())
 
 const editorContent = ref('')
-
 
 // Reference files data
 const referenceFiles = store.referenceFiles

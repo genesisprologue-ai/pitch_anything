@@ -11,9 +11,9 @@ import {
 
 export const useDavidStore = defineStore('david', () => {
   // State to hold the PDF URL
-  const pitchUid = ref('8d013241-cc4f-4504-b2ba-02eba9d3d593')
+  const pitchUid = ref('')
   const pdfUrl = ref('')
-  const masterTaskId = ref('708ff06a-828d-4e46-9ef3-4fa13b05065a')
+  const masterTaskId = ref('')
   const videoTaskId = ref('')
 
 
