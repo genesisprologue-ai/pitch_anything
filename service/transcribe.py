@@ -10,6 +10,7 @@ from vertexai.preview.generative_models import (
 from schema import PageDraft, PageTranscript
 from config import PROJECT_ID, LOC
 from llm import llm_client
+import openai
 import prompts.prompts as prompts
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def draft_transcribe(file_paths, document):
         # fetch cornerstone
         try:
             cornerstone = cornerstone_from_cover(file_paths[0], multimodal_model)
-            if cornerstone != '':
+            if cornerstone != "":
                 break
         except Exception as e:
             print(e)
@@ -121,8 +122,8 @@ def draft_transcribe(file_paths, document):
 
 def gen_transcript(drafts: List[PageDraft]) -> str:
     speeches = []
-    llm_cli = llm_client()
-    prev_speech = ''
+    llm_client()
+    prev_speech = ""
     for i, draft in enumerate(drafts):
         backward_ref = ""
         forward_ref = ""
@@ -138,12 +139,12 @@ def gen_transcript(drafts: List[PageDraft]) -> str:
                 "forward_ref": forward_ref,
                 "cornerstone": draft.cornerstone,
                 "current_page": draft.draft,
-                "speech_from_last_page": prev_speech
+                "speech_from_last_page": prev_speech,
             },
             "gen_speech.txt",
         )
-        logger.info(f'-----{sys_prompt}')
-        response = llm_cli.chat.completions.create(
+        logger.info(f"-----{sys_prompt}")
+        response = openai.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=[{"role": "system", "content": sys_prompt}],
         )
@@ -155,6 +156,7 @@ def gen_transcript(drafts: List[PageDraft]) -> str:
         speeches.append(new_speech)
 
     return json.dumps(speeches)
+
 
 # if __name__ == "__main__":
 #     page_drafts = None

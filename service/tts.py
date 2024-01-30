@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import azure.cognitiveservices.speech as speechsdk
 import prompts.prompts as prompts
 from llm import llm_client
+import openai
 import torch
 from transformers import pipeline
 from transformers.utils import is_flash_attn_2_available
@@ -19,8 +20,8 @@ def text_to_ssml(text):
     print("----------------")
     print(sys_prompt)
     print("----------------")
-    llm_cli = llm_client()
-    response = llm_cli.chat.completions.create(
+    llm_client()
+    response = openai.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         messages=[{"role": "system", "content": sys_prompt}],
     )
@@ -54,8 +55,8 @@ def speech_synthesize(ssml, pitch_id, sequence, voice_name="en-US-GuyNeural"):
     speech_synthesis_result = speech_synthesizer.speak_text(ssml)
 
     if (
-            speech_synthesis_result.reason
-            == speechsdk.ResultReason.SynthesizingAudioCompleted
+        speech_synthesis_result.reason
+        == speechsdk.ResultReason.SynthesizingAudioCompleted
     ):
         print("SynthesizingAudioCompleted result")
         stream = speechsdk.AudioDataStream(speech_synthesis_result)
@@ -111,13 +112,16 @@ def srt_from_whisper(pitch_id):
         # select checkpoint from https://huggingface.co/openai/whisper-large-v3#model-details
         torch_dtype=torch.float16,
         device=device,  # or mps for Mac devices
-        model_kwargs={"attn_implementation": "flash_attention_2"} if is_flash_attn_2_available() else {
-            "attn_implementation": "sdpa"},
+        model_kwargs={"attn_implementation": "flash_attention_2"}
+        if is_flash_attn_2_available()
+        else {"attn_implementation": "sdpa"},
     )
     for audio_file in audio_files:
         if audio_file.endswith(".wav"):
-            srt_file_path = os.path.abspath(os.path.join("media", pitch_id, audio_file.replace(".wav", ".srt")))
-            with open(srt_file_path, 'w') as srt_file:
+            srt_file_path = os.path.abspath(
+                os.path.join("media", pitch_id, audio_file.replace(".wav", ".srt"))
+            )
+            with open(srt_file_path, "w") as srt_file:
                 audio_file_path = os.path.abspath(
                     os.path.join("media", pitch_id, audio_file)
                 )
@@ -129,10 +133,10 @@ def srt_from_whisper(pitch_id):
                 )
                 print(f"whisper outputs: {outputs}")
                 # Iterate over each chunk in the transcript
-                for index, chunk in enumerate(outputs['chunks'], start=1):
-                    start_time = format_srt_time(chunk['timestamp'][0])
-                    end_time = format_srt_time(chunk['timestamp'][1])
-                    text = chunk['text'].replace('\n', ' ')
+                for index, chunk in enumerate(outputs["chunks"], start=1):
+                    start_time = format_srt_time(chunk["timestamp"][0])
+                    end_time = format_srt_time(chunk["timestamp"][1])
+                    text = chunk["text"].replace("\n", " ")
 
                     # Write the SRT format to the file
                     srt_file.write(f"{index}\n")
