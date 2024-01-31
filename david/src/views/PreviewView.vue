@@ -1,10 +1,16 @@
 <script setup>
-import { ref, defineComponent, shallowRef, shallowReactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, defineComponent, shallowRef, shallowReactive, computed, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { VideoPlayer } from '@videojs-player/vue'
 import 'video.js/dist/video-js.css'
 import { useDavidStore } from '@/stores/david'
 
 const store = useDavidStore();
+
+const route = useRoute()
+let pitchUid = route.query.pitch
+store.pitchUid = pitchUid
+
 const messages = ref([])
 
 const indexM3U8URL = store.getVideoURL('index.m3u8');
@@ -76,6 +82,7 @@ const handleNewMessage = async (message) => {
   const url = streamingURL + `?query=${message.content}` // todo: use URL object
   streaming(url)
 }
+
 
 onUnmounted(() => {
   if (eventSource) {

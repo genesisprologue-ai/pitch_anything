@@ -448,4 +448,5 @@ pyrightconfig.json
 
 service/uploads/*
 service/media/output/*
-service/images
+service/images/*
+service/media/*

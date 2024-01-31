@@ -2,9 +2,13 @@ version: "3.8"
 
 services:
   frontend:
-    build: ./david
+    build:
+      context: ./david
+      dockerfile: Dockerfile
     ports:
       - "80:80"
+    environment:
+      - VITE_BASE_URL=http://backend:8000
     networks:
       - david-network
 
@@ -12,6 +16,8 @@ services:
     build:
       context: ./service
       dockerfile: Dockerfile.base
+      platforms:
+        - "linux/amd64"
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     networks:
       - david-network
@@ -20,6 +26,8 @@ services:
     build:
       context: ./service
       dockerfile: Dockerfile.base
+      platforms:
+        - "linux/amd64"
     command: celery -A tasks worker --loglevel=info
     depends_on:
       - redis
@@ -30,7 +38,7 @@ services:
       - david-network
 
   redis:
-    image: "redis:alpine"
+    image: "redis:latest"
     networks:
       - david-network
 

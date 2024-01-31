@@ -1,10 +1,14 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  uploadMasterFile as uploadMasterFileApi,
-  fetchTranscript as fetchTranscriptApi,
-  fetchTaskStatus as fetchTaskStatusApi,
-  updateTranscript as updateTranscriptApi,
+  uploadMasterFile as uploadMasterFileAPI,
+  uploadEmbeddingFile as uploadEmbeddingFileAPI,
+  fetchTranscript as fetchTranscriptAPI,
+  updateTranscript as updateTranscriptAPI,
+  fetchTranscribeTaskStatus as fetchTranscribeTaskStatusAPI,
+  fetchTTSTaskStatus as fetchTTSTaskStatusAPI,
+  listDocuments as listDocumentsAPI,
+  deleteDocument as deleteDocumentAPI,
   tts,
   BASE_URL
 } from '@/api/ApiService'
@@ -13,13 +17,7 @@ export const useDavidStore = defineStore('david', () => {
   // State to hold the PDF URL
   const pitchUid = ref('')
   const pdfUrl = ref('')
-  const masterTaskId = ref('')
-  const videoTaskId = ref('')
-
-
-  const getPdfURL = () => {
-    return `${BASE_URL}/${pitchUid.value}/master_doc`
-  }
+  const ttsTaskId = ref('')
 
   // List of reference files for the master file
   const referenceFiles = ref([
@@ -29,6 +27,11 @@ export const useDavidStore = defineStore('david', () => {
   // Transcript data segmented into chapters
   const transcripts = ref([])
 
+  const getPdfURL = () => {
+    return `${BASE_URL}/${pitchUid.value}/master_doc`
+  }
+
+
   const getVideoURL = (name) => {
     return BASE_URL + '/pitch_video/' + pitchUid.value + `/${name}`
   }
@@ -36,11 +39,10 @@ export const useDavidStore = defineStore('david', () => {
   async function uploadMasterFile(file) {
 
     try {
-      const result = await uploadMasterFileApi(file)
+      const result = await uploadMasterFileAPI(file)
       console.log(result)
-      pitchUid.value = result.pitch_id
+      pitchUid.value = result.pitch_uid
       pdfUrl.value = BASE_URL + '/' + pitchUid.value + '/master_doc'
-      masterTaskId.value = result.task_id
       return result
     } catch (error) {
       console.error('Error uploading master file:', error)
@@ -51,20 +53,42 @@ export const useDavidStore = defineStore('david', () => {
   }
 
   // Actions to upload embedding files
-  async function uploadEmbeddingFile(files, dataType) {
+  async function uploadEmbeddingFile(param) {
     // Your file upload logic here
-    console.log('File uploaded:', files)
-    console.log('Data type:', dataType)
+    console.log('File uploaded:', param.files)
+    console.log('Keywords', param.keywords)
+    if (param.files.length > 0) {
+      const file = param.files[0]; // Get the first file from the file input
+      // Call uploadMasterFile with the file
+      try {
+        const result = await uploadEmbeddingFileAPI(file)
+        console.log(result)
+        return result
+      } catch (error) {
+        console.error('Error uploading master file:', error)
+        // Handle error
+        throw error
+      }
+    }
   }
 
-  async function fetchMasterTaskStatus() {
+  const transcribeStageMap = {
+    0: 'KICKOFF',
+    1: 'SEGMENT',
+    2: 'DRAFT',
+    3: 'GEN_TRANSCRIPT',
+    4: 'FINISH'
+  }
+  async function fetchTranscribeTaskStage() {
     try {
-      const result = await fetchTaskStatusApi(masterTaskId.value)
+      const result = await fetchTranscribeTaskStatusAPI(pitchUid.value)
       console.log(result)
-      // check document progress, progress is in 1:10 format for 10 page document processing at page 1
-      const [currentPage, totalPages] = result.progress.split(':')
-      const percentage = (parseInt(currentPage) / parseInt(totalPages)) * 100
-      return Math.round(percentage) // Round the percentage to the nearest whole number
+
+
+      const stage = transcribeStageMap[result.status]
+      console.log('Stage:', stage)
+
+      return stage
     } catch (error) {
       console.error('Error fetching master task status:', error)
       // Handle error
@@ -72,14 +96,23 @@ export const useDavidStore = defineStore('david', () => {
     }
   }
 
-  async function fetchVideoTaskStatus() {
+  const ttsStageMap = {
+    101: 'PROCESSING',
+    102: 'AUDIO',
+    103: 'VIDEO',
+    104: 'FINISH',
+    199: 'FAILED'
+  }
+  async function fetchTTSTaskStage() {
     try {
-      const result = await fetchTaskStatusApi(videoTaskId.value)
+      const result = await fetchTTSTaskStatusAPI(pitchUid.value, ttsTaskId.value)
       console.log(result)
-      // check document progress, progress is in 1:10 format for 10 page document processing at page 1
-      const [currentPage, totalPages] = result.progress.split(':')
-      const percentage = (parseInt(currentPage) / parseInt(totalPages)) * 100
-      return Math.round(percentage) // Round the percentage to the nearest whole number
+
+
+      const stage = ttsStageMap[result.status]
+      console.log('Stage:', stage)
+
+      return stage
     } catch (error) {
       console.error('Error fetching master task status:', error)
       // Handle error
@@ -91,7 +124,7 @@ export const useDavidStore = defineStore('david', () => {
   // Action to fetch and set the transcript for the master file
   async function fetchTranscript() {
     try {
-      const result = await fetchTranscriptApi(pitchUid.value)
+      const result = await fetchTranscriptAPI(pitchUid.value)
       console.log(result)
 
       if (result.message !== null) {
@@ -112,7 +145,7 @@ export const useDavidStore = defineStore('david', () => {
 
   async function updateTranscript() {
     try {
-      const result = await updateTranscriptApi(pitchUid.value, transcripts.value)
+      const result = await updateTranscriptAPI(pitchUid.value, transcripts.value)
       console.log(result)
 
       if (result.message !== null) {
@@ -132,8 +165,8 @@ export const useDavidStore = defineStore('david', () => {
   async function generateVideo() {
     try {
       const result = await tts(pitchUid.value)
-      console.log(result)
-      videoTaskId.value = result.task_id
+      console.log('tts result:', result)
+      ttsTaskId.value = result.task_id;
       return result
     } catch (error) {
       console.error('Error generating video:', error)
@@ -146,22 +179,54 @@ export const useDavidStore = defineStore('david', () => {
     return `${BASE_URL}/${pitchUid.value}/streaming`
   }
 
+  async function fetchDocuments() {
+    try {
+      const data = await listDocumentsAPI(pitchUid.value)
+      if (data.message !== null) {
+        console.warn(data)
+        return
+      }
+      referenceFiles.value = data.docs
+    } catch (error) {
+      console.error('Error fetching documents:', error)
+      // Handle error
+      throw error
+    }
+  }
+
+  async function removeReference(file_id) {
+    try {
+      const data = await deleteDocumentAPI(pitchUid.value, file_id)
+      console.log(data)
+      if (data.message !== null) {
+        console.warn(data)
+        return
+      }
+      referenceFiles.value = referenceFiles.value.filter((file) => file.id !== file_id)
+    } catch (error) {
+      console.error('Error fetching documents:', error)
+      // Handle error
+      throw error
+    }
+  }
+
 
   return {
     pitchUid,
     pdfUrl,
-    masterTaskId,
     referenceFiles,
     transcripts,
     getPdfURL,
     uploadMasterFile,
     uploadEmbeddingFile,
     fetchTranscript,
-    fetchMasterTaskStatus,
-    fetchVideoTaskStatus,
+    fetchTranscribeTaskStage,
+    fetchTTSTaskStage,
     updateTranscript,
     generateVideo,
     getVideoURL,
     getStreamingURL,
+    fetchDocuments,
+    removeReference,
   }
 })

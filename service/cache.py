@@ -1,7 +1,6 @@
 import os
 
 import redis
-import logging
 
 redis_pool = None
 

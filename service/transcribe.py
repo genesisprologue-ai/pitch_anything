@@ -7,10 +7,9 @@ from vertexai.preview.generative_models import (
     GenerativeModel,
     Image as VertextImg,
 )
-from schema import PageDraft, PageTranscript
+from schema import PageDraft
 from config import PROJECT_ID, LOC
 from llm import llm_client
-import openai
 import prompts.prompts as prompts
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ def cornerstone_from_cover(file_path, multimodal_model):
         return
 
     cover_img = VertextImg.load_from_file(file_path)
-    ref_img = VertextImg.load_from_file("./prompts/examples/cornerstone.jpg")
 
     cornerstone = multimodal_model.generate_content(
         [
@@ -116,7 +114,18 @@ def draft_transcribe(file_paths, document):
             except Exception as e:
                 print(e)
                 retries += 1
-    page_drafts.insert(0, PageDraft(page=1, cornerstone=cornerstone, draft=cornerstone))
+    print(cornerstone)
+    print(type(cornerstone))
+    page_drafts.insert(
+        0,
+        PageDraft(
+            page=1,
+            cornerstone=cornerstone,
+            draft=cornerstone,
+            draft_from_images="",
+            links=[],
+        ),
+    )
     return page_drafts
 
 

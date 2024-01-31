@@ -1,9 +1,30 @@
 import os
 from dotenv import load_dotenv
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AzureOpenAI
 import openai
 
 llm_cli = None
+
+async_llm_cli = None
+
+
+def async_llm_client() -> AsyncAzureOpenAI:
+    global async_llm_cli
+    load_dotenv()
+    openai.api_type = "azure"
+    openai.api_base = os.getenv("AZURE_OPENAI_ENDPOINT")
+    openai.api_key = os.getenv("AZURE_OPENAI_KEY")
+    openai.api_version = "2023-07-01-preview"
+
+    if not async_llm_cli:
+        async_llm_cli = AsyncAzureOpenAI(
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            api_version="2023-07-01-preview",
+            api_key=os.getenv("AZURE_OPENAI_KEY"),
+        )
+
+    return async_llm_cli
 
 
 def llm_client() -> AsyncAzureOpenAI:
@@ -15,7 +36,7 @@ def llm_client() -> AsyncAzureOpenAI:
     openai.api_version = "2023-07-01-preview"
 
     if not llm_cli:
-        llm_cli = AsyncAzureOpenAI(
+        llm_cli = AzureOpenAI(
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             api_version="2023-07-01-preview",
@@ -36,7 +57,7 @@ async def get_remote_chat_response(messages):
     Returns:
     str: The streamed OpenAI chat response.
     """
-    llm_cli = llm_client()
+    llm_cli = async_llm_client()
     try:
         response = await llm_cli.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),

@@ -1,4 +1,3 @@
-import json
 import os
 
 import azure.cognitiveservices.speech as speechsdk
@@ -51,6 +50,7 @@ def speech_synthesize(ssml, pitch_id, sequence, voice_name="en-US-GuyNeural"):
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config, audio_config=None
     )
+    print("synthesizing audio")
     # speech_synthesis_result = speech_synthesizer.speak_ssml(ssml)
     speech_synthesis_result = speech_synthesizer.speak_text(ssml)
 
@@ -83,11 +83,11 @@ def speech_synthesize(ssml, pitch_id, sequence, voice_name="en-US-GuyNeural"):
 # insanely fast whisper
 
 
-def convert_to_srt(data):
-    # Parse the JSON data
-    transcript = json.loads(data)
+# def convert_to_srt(data):
+# Parse the JSON data
+# transcript = json.loads(data)
 
-    # Open the SRT file for writing
+# Open the SRT file for writing
 
 
 def format_srt_time(seconds):

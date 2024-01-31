@@ -50,7 +50,8 @@ export default {
             if (userInput.value.length > 6 && event.key !== 'Enter') {
                 // pause video
                 emit('pause-video', true);
-            } else {
+            } else if (event.key === 'Enter' && userInput.value.trim() === '') {
+                // continue playing video
                 emit('pause-video', false);
             }
         };
