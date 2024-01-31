@@ -223,6 +223,30 @@ class Document(Base):
                 print(f"Error occurred: {e}")
 
     @classmethod
+    def remove_by_doc_id(cls, doc_id):
+        with local_session() as session:
+            try:
+                session.query(cls).filter_by(id=doc_id).delete()
+                session.commit()
+                return True
+            except Exception as e:
+                session.rollback()
+                print(f"Error occurred: {e}")
+
+    @classmethod
+    def get_ref_docs_by_pitch_id(cls, pitch_id):
+        with local_session() as session:
+            try:
+                return (
+                    session.query(cls)
+                    .filter_by(pitch_id=pitch_id, master_doc=False)
+                    .all()
+                )
+            except Exception as e:
+                session.rollback()
+                print(f"Error occurred: {e}")
+
+    @classmethod
     def get_master_by_pitch_id(cls, pitch_id):
         with local_session() as session:
             try:

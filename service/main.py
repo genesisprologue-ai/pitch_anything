@@ -107,19 +107,26 @@ async def resume_transcribe(pitch_uid: str):
     return {"task_id": task.task_id, "message": None}
 
 
-@app.post("/{pitch_id}/reference_doc")
+@app.post("/{pitch_uid}/reference_doc")
 async def upload_embedding(
-    pitch_id: int, file: Annotated[UploadFile, Form()], keywords: Annotated[str, Form()]
+    pitch_uid: str,
+    file: Annotated[UploadFile, Form()],
+    keywords: Annotated[str, Form()],
 ):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
+    if not pitch:
+        raise HTTPException(status_code=404, detail="Pitch not found")
+
     source_stream = await file.read()
     # upload file to uploads folder
-    _, ref_folder = all_pitch_folders_path(pitch_id)
+    _, ref_folder = all_pitch_folders_path(pitch_uid)
     upload_path = os.path.join(ref_folder, file.filename)
     with open(upload_path, "wb") as f:
         f.write(source_stream)
+
     # create document
     document = orm.Document(
-        pitch_id=pitch_id,
+        pitch_id=pitch.id,
         master_doc=False,
         file_name=file.filename,
         storage_path=upload_path,
@@ -127,11 +134,45 @@ async def upload_embedding(
     document.save()
 
     try:
-        rag.load_and_embed(pitch_id, upload_path, keywords.split(","))
+        rag.load_and_embed(pitch.id, upload_path, keywords.split(","))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"message": None}
+
+
+@app.get("/{pitch_uid}/reference_doc")
+async def list_reference_docs(pitch_uid: str):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
+    if not pitch:
+        raise HTTPException(status_code=404, detail="Pitch not found")
+    docs = orm.Document.get_ref_docs_by_pitch_id(pitch_id=pitch.id)
+    return {
+        "docs": [{"id": doc.id, "name": doc.file_name} for doc in docs],
+        "message": None,
+    }
+
+
+@app.get("/{pitch_uid}/reference_doc/download/{doc_id}")
+async def downloand_reference_docs(pitch_uid: str, doc_id: int):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
+    if not pitch:
+        raise HTTPException(status_code=404, detail="Pitch not found")
+    doc = orm.Document.get_by_doc_id(doc_id=doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Doc not found")
+    return FileResponse(doc.storage_path, media_type="application/pdf")
+
+
+@app.delete("/{pitch_uid}/reference_doc/{doc_id}")
+async def remove_reference_doc(pitch_uid: str, doc_id: int):
+    pitch = orm.Pitch.get_by_pitch_uid(pitch_uid=pitch_uid)
+    if not pitch:
+        raise HTTPException(status_code=404, detail="Pitch not found")
+    if orm.Document.remove_by_doc_id(pitch_id=pitch.id):
+        return {"message": None}
+
+    raise HTTPException(status_code=500, detail="Failed to remove reference doc")
 
 
 @app.post("/{pitch_uid}/tts")
